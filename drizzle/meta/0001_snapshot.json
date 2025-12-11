@@ -1,6 +1,6 @@
 {
-  "id": "4346255f-5b25-46b1-8e66-a71fe03875de",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "ae1e6b24-42d3-4e2f-b8ff-36b5d42b1a4d",
+  "prevId": "4346255f-5b25-46b1-8e66-a71fe03875de",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -132,6 +132,18 @@
         },
         "emailVerificationExpires": {
           "name": "emailVerificationExpires",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "activationToken": {
+          "name": "activationToken",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "activationTokenExpires": {
+          "name": "activationTokenExpires",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
