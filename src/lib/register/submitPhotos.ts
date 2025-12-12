@@ -1,0 +1,34 @@
+import axios from "axios";
+import { VendorPhotosPayload } from "@/types/vendor-registration";
+
+export async function submitPhotos({
+    photos,
+}: VendorPhotosPayload): Promise<{ message: string }> {
+    const onboardingToken = sessionStorage.getItem("onboardingToken");
+
+    if (!onboardingToken) {
+        throw new Error("Missing onboarding token.");
+    }
+
+    const form = new FormData();
+    form.append("onboardingToken", onboardingToken);
+
+    photos.forEach((file) => {
+        form.append("files", file); // FIXED → match backend
+    });
+
+    try {
+        const res = await axios.post("/api/vendors/upload-photos", form, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
+
+        return res.data;
+    } catch (err) {
+        const message =
+            axios.isAxiosError(err) && err.response?.data?.error
+                ? err.response.data.error
+                : "Failed to upload photos";
+
+        throw new Error(message);
+    }
+}
