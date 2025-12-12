@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { db } from "@/config/db";
-import { vendorsTable } from "@/config/schema";
+import { vendorsTable } from "@/config/vendorsSchema";
 import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 

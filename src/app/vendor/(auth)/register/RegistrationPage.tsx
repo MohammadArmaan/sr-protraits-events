@@ -12,7 +12,7 @@ import {
 import { toast } from "sonner";
 
 import BasicInfo from "./steps/BasicInfo";
-import { RegistrationStepper } from "@/components/RegistrationStepper";
+import { RegistrationStepper } from "@/components/vendor/RegistrationStepper";
 import { VendorBasicInfo } from "@/types/vendor-registration";
 import { submitBasicInfo } from "@/lib/register/submitBasicInfo";
 import VerifyEmail from "./steps/VerifyEmail";
@@ -43,6 +43,7 @@ export default function RegistrationPage() {
 
     const [formData, setFormData] = useState({
         fullName: "",
+        businessName: "",
         occupation: "",
         phone: "",
         address: "",
@@ -89,6 +90,7 @@ export default function RegistrationPage() {
         if (currentStep === 1) {
             const payload: VendorBasicInfo = {
                 fullName: formData.fullName,
+                businessName: formData.fullName,
                 occupation: formData.occupation,
                 phone: formData.phone,
                 address: formData.address,

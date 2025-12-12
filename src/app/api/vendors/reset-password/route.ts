@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/config/db";
-import { vendorsTable } from "@/config/schema";
+import { vendorsTable } from "@/config/vendorsSchema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
@@ -29,14 +29,23 @@ export async function POST(req: NextRequest) {
             .where(eq(vendorsTable.resetPasswordToken, token));
 
         if (vendorList.length === 0) {
-            return NextResponse.json({ error: "Invalid or expired token" }, { status: 400 });
+            return NextResponse.json(
+                { error: "Invalid or expired token" },
+                { status: 400 }
+            );
         }
 
         const vendor = vendorList[0];
 
         // Check expiry
-        if (!vendor.resetPasswordExpires || vendor.resetPasswordExpires < new Date()) {
-            return NextResponse.json({ error: "Reset token expired" }, { status: 400 });
+        if (
+            !vendor.resetPasswordExpires ||
+            vendor.resetPasswordExpires < new Date()
+        ) {
+            return NextResponse.json(
+                { error: "Reset token expired" },
+                { status: 400 }
+            );
         }
 
         // Hash new password

@@ -15,6 +15,41 @@
       "when": 1765443607032,
       "tag": "0001_even_darwin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1765518607141,
+      "tag": "0002_harsh_machine_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1765519312934,
+      "tag": "0003_milky_impossible_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1765530818851,
+      "tag": "0004_glorious_king_bedlam",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1765537512645,
+      "tag": "0005_first_lady_vermin",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1765537791133,
+      "tag": "0006_nostalgic_vector",
+      "breakpoints": true
     }
   ]
 }

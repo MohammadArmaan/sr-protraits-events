@@ -1,0 +1,1 @@
+ALTER TABLE "vendor_profile_edits" ADD COLUMN "removedBusinessPhotos" json DEFAULT '[]'::json;

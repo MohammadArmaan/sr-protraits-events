@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { vendorsTable } from "@/config/schema";
+import { vendorsTable } from "@/config/vendorsSchema";
 import { db } from "@/config/db";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -15,6 +15,7 @@ import { otpEmailTemplate } from "@/lib/email-templates/otpTemplates";
 
 interface VendorRegistrationBody {
     fullName: string;
+    businessName: string;
     occupation: string;
     phone: string;
     address: string;
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest) {
 
         const {
             fullName,
+            businessName,
             occupation,
             phone,
             address,
@@ -53,6 +55,7 @@ export async function POST(req: NextRequest) {
         // ----------------------------
         if (
             !fullName ||
+            !businessName ||
             !occupation ||
             !phone ||
             !address ||
@@ -106,6 +109,7 @@ export async function POST(req: NextRequest) {
             .insert(vendorsTable)
             .values({
                 fullName,
+                businessName,
                 occupation,
                 phone,
                 address,

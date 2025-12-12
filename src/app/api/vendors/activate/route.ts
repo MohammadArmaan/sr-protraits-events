@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/config/db";
-import { vendorsTable } from "@/config/schema";
+import { vendorsTable } from "@/config/vendorsSchema";
 import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 
@@ -63,9 +63,7 @@ export async function GET(req: NextRequest) {
         });
 
         // Create a session cookie (HTTP-only)
-        const response = NextResponse.redirect(
-            `${process.env.DOMAIN}/vendor`
-        );
+        const response = NextResponse.redirect(`${process.env.DOMAIN}/vendor`);
 
         response.cookies.set("vendor_session", loginToken, {
             httpOnly: true,

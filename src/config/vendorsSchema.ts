@@ -8,17 +8,12 @@ import {
     pgTable,
 } from "drizzle-orm/pg-core";
 
-export const usersTable = pgTable("users", {
-    id: integer().primaryKey().generatedAlwaysAsIdentity(),
-    name: varchar({ length: 255 }).notNull(),
-    email: varchar({ length: 255 }).notNull().unique(),
-    imageUrl: varchar({ length: 255 }),
-});
 
 export const vendorsTable = pgTable("vendors", {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
 
     // Step 1 – Basic account
+    businessName: varchar({ length: 255 }).notNull(),
     fullName: varchar({ length: 255 }).notNull(),
     occupation: varchar({ length: 255 }).notNull(),
     phone: varchar({ length: 20 }).notNull(),

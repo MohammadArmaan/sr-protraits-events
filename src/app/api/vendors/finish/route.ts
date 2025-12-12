@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/config/db";
-import { vendorsTable } from "@/config/schema";
+import { vendorsTable } from "@/config/vendorsSchema";
 import jwt from "jsonwebtoken";
 import { eq } from "drizzle-orm";
 

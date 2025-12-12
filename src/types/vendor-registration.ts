@@ -1,5 +1,6 @@
 export interface VendorBasicInfo {
     fullName: string;
+    businessName: string;
     occupation: string;
     phone: string;
     address: string;
@@ -10,6 +11,7 @@ export interface VendorBasicInfo {
 
 export type VendorFormData = {
     fullName: string;
+    businessName: string;
     occupation: string;
     phone: string;
     address: string;

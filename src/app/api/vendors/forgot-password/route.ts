@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/config/db";
-import { vendorsTable } from "@/config/schema";
+import { vendorsTable } from "@/config/vendorsSchema";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
 import { resetPasswordTemplate } from "@/lib/email-templates/resetPasswordTemplate";
@@ -11,7 +11,10 @@ export async function POST(req: NextRequest) {
         const { email } = await req.json();
 
         if (!email) {
-            return NextResponse.json({ error: "Email is required" }, { status: 400 });
+            return NextResponse.json(
+                { error: "Email is required" },
+                { status: 400 }
+            );
         }
 
         // Find vendor
@@ -22,7 +25,10 @@ export async function POST(req: NextRequest) {
 
         if (vendorList.length === 0) {
             return NextResponse.json(
-                { message: "If an account exists, a reset email will be sent." },
+                {
+                    message:
+                        "If an account exists, a reset email will be sent.",
+                },
                 { status: 200 }
             );
         }

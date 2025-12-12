@@ -1,67 +1,132 @@
-// middleware.ts
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 
-interface AuthTokenPayload {
-    vendorId?: number;
-    userId?: number;
-    role: "vendor" | "admin" | "user";
-    step?: number; // onboarding step (optional)
-    iat: number;
-    exp: number;
+type UserRole = "vendor" | "admin" | "customer";
+
+// -----------------------------
+// 1️⃣ PUBLIC ROUTES (no auth)
+// -----------------------------
+const globalPublicRoutes = [
+    "/",                // homepage
+    "/about",
+    "/contact",
+    "/gallery",
+    "/pricing",
+];
+
+// -----------------------------
+// 2️⃣ AUTH ROUTES (also public)
+// -----------------------------
+const authRoutes = {
+    vendor: [
+        "/vendor/sign-in",
+        "/vendor/register",
+        "/vendor/forgot-password",
+        "/vendor/reset-password",
+    ],
+    admin: [
+        "/admin/sign-in",
+        "/admin/forgot-password",
+        "/admin/reset-password",
+    ],
+    customer: [
+        "/customer/sign-in",
+        "/customer/register",
+        "/customer/forgot-password",
+        "/customer/reset-password",
+    ],
+};
+
+// -----------------------------
+// 3️⃣ PROTECTED ROUTES PER ROLE
+// -----------------------------
+const protectedRoutes = {
+    vendor: "/vendor",
+    admin: "/admin",
+    customer: "/customer",
+};
+
+// -----------------------------
+// Helper: check if path starts with any allowed route
+// -----------------------------
+function matches(pathname: string, routes: string[]) {
+    return routes.some((route) => pathname.startsWith(route));
 }
 
 export function middleware(req: NextRequest) {
-    const token = req.cookies.get("auth_token")?.value;
+    const { pathname } = req.nextUrl;
 
-    // Public routes (no auth required)
-    const publicRoutes = ["/login", "/register", "/"];
-
-    if (publicRoutes.some((path) => req.nextUrl.pathname.startsWith(path))) {
+    // -----------------------------
+    // Allow all global public routes
+    // -----------------------------
+    if (matches(pathname, globalPublicRoutes)) {
         return NextResponse.next();
     }
 
-    // If no token → redirect to login
-    if (!token) {
-        return NextResponse.redirect(new URL("/login", req.url));
+    // -----------------------------
+    // ROLE detection based on URL
+    // -----------------------------
+    let role: UserRole | null = null;
+    if (pathname.startsWith("/vendor")) role = "vendor";
+    if (pathname.startsWith("/admin")) role = "admin";
+    if (pathname.startsWith("/customer")) role = "customer";
+
+    // If route doesn't belong to any role, allow
+    if (!role) return NextResponse.next();
+
+    // -----------------------------
+    // Allow access to auth routes (public)
+    // -----------------------------
+    if (matches(pathname, authRoutes[role])) {
+        return NextResponse.next();
     }
 
-    let decoded: AuthTokenPayload;
+    // -----------------------------
+    // Validate Token
+    // -----------------------------
+    const tokenName =
+        role === "vendor"
+            ? "vendor_token"
+            : role === "admin"
+            ? "admin_token"
+            : "customer_token";
+
+    const token = req.cookies.get(tokenName)?.value;
+
+    if (!token) {
+        return NextResponse.redirect(new URL(`${protectedRoutes[role]}/sign-in`, req.url));
+    }
+
     try {
-        decoded = jwt.verify(
-            token,
-            process.env.JWT_SECRET!
-        ) as AuthTokenPayload;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
+            role: UserRole;
+        };
+
+        // Role mismatch? BLOCK
+        if (decoded.role !== role) {
+            const res = NextResponse.redirect(
+                new URL(`${protectedRoutes[role]}/sign-in`, req.url)
+            );
+            res.cookies.delete(tokenName);
+            return res;
+        }
     } catch {
-        // Token invalid → force logout
-        const res = NextResponse.redirect(new URL("/login", req.url));
-        res.cookies.delete("auth_token");
+        const res = NextResponse.redirect(
+            new URL(`${protectedRoutes[role]}/sign-in`, req.url)
+        );
+        res.cookies.delete(tokenName);
         return res;
     }
 
-    const role = decoded.role;
-
-    // Route-based protection
-    const path = req.nextUrl.pathname;
-
-    // Vendor-only routes
-    if (path.startsWith("/vendor") && role !== "vendor") {
-        return NextResponse.redirect(new URL("/unauthorized", req.url));
-    }
-
-    // Admin-only routes
-    if (path.startsWith("/admin") && role !== "admin") {
-        return NextResponse.redirect(new URL("/unauthorized", req.url));
-    }
-
-    // Customer-only routes
-    if (path.startsWith("/user") && role !== "user") {
-        return NextResponse.redirect(new URL("/unauthorized", req.url));
-    }
-
+    // Token valid → allow
     return NextResponse.next();
 }
 
 export const config = {
-    matcher: ["/vendor/:path*", "/admin/:path*", "/user/:path*"],
+    matcher: [
+        "/vendor/:path*",
+        "/admin/:path*",
+        "/customer/:path*",
+        "/((?!_next/static|_next/image|favicon.ico).*)",
+    ],
 };

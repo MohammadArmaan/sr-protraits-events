@@ -16,6 +16,7 @@ export default function BasicInfo({ formData, setFormData }: Props) {
 
     const fields = [
         { id: "fullName", label: "Full Name" },
+        { id: "businessName", label: "Business Name" },
         { id: "occupation", label: "Occupation" },
         { id: "phone", label: "Phone Number" },
         { id: "address", label: "Address" },

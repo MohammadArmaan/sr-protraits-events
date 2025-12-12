@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { vendorsTable } from "@/config/schema";
+import { vendorsTable } from "@/config/vendorsSchema";
 import { db } from "@/config/db";
 import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
                 process.env.JWT_SECRET!
             ) as OnboardingTokenPayload;
         } catch (error) {
-            console.error(error)
+            console.error(error);
             return NextResponse.json(
                 { error: "Invalid or expired session token" },
                 { status: 401 }
@@ -61,10 +61,7 @@ export async function POST(req: NextRequest) {
         // 3. Check OTP match
         // -----------------------------
         if (vendor.emailVerificationOtp !== otp) {
-            return NextResponse.json(
-                { error: "Invalid OTP" },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: "Invalid OTP" }, { status: 400 });
         }
 
         // -----------------------------

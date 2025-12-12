@@ -4,7 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/config/db";
-import { vendorsTable } from "@/config/schema";
+import { vendorsTable } from "@/config/vendorsSchema";
 import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import { activationEmailTemplate } from "@/lib/email-templates/activationTemplate";
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
             subject: "Your Vendor Account is Approved 🎉",
             html: activationEmailTemplate(
                 vendor.fullName,
-                `api/vendors/activate?token=${activationToken}`
+                `/api/vendors/activate?token=${activationToken}`
             ),
         });
 

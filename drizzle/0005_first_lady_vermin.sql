@@ -1,0 +1,2 @@
+ALTER TABLE "vendor_profile_edits" ADD COLUMN "newBusinessPhotos" json DEFAULT '[]'::json;--> statement-breakpoint
+ALTER TABLE "vendor_profile_edits" ADD COLUMN "oldBusinessPhotos" json DEFAULT '[]'::json;
