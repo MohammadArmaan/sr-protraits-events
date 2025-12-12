@@ -9,8 +9,8 @@ import { VendorBusinessPhotos } from "@/components/vendor/profile/VendorBusiness
 import { submitProfileEdit } from "@/lib/vendor/editProfile";
 import { toast } from "sonner";
 import { useVendor } from "@/hooks/useVendor";
-import axios from "axios";
-import { LogOutIcon } from "lucide-react";
+import VendorLogoutButton from "@/components/vendor/VendorLogoutButton";
+
 
 interface VendorProfileState {
     fullName: string;
@@ -110,19 +110,11 @@ export default function VendorProfilePage() {
         }
     }
 
-    // -------------------------------------------------
-    // LOGOUT HANDLER
-    // -------------------------------------------------
-    async function handleLogout() {
-        await axios.post("/api/vendors/logout");
-        localStorage.removeItem("vendorToken");
-        toast.success("Logged out");
-        window.location.href = "/auth/vendor-login";
-    }
 
     return (
         <main className="max-w-4xl mx-auto pt-20 pb-10">
-            <h1 className="text-4xl font-bold mb-4">Vendor Profile</h1>
+            <h1 className="text-4xl font-bold mb-2">Vendor Profile</h1>
+            <p className="text-base text-muted-foreground mb-10">Manage your business information</p>
 
             <Card className="rounded-2xl">
                 <CardContent className="p-8 space-y-10">
@@ -197,13 +189,7 @@ export default function VendorProfilePage() {
                     {/* LOGOUT BUTTON */}
                     <div className="pt-6 border-t">
                         <h2 className="text-2xl font-semibold mb-5">Logout Account</h2>
-                        <Button
-                            variant="destructive"
-                            className="rounded-pill w-full"
-                            onClick={handleLogout}
-                        >
-                            Logout <LogOutIcon />
-                        </Button>
+                        <VendorLogoutButton />
                     </div>
                 </CardContent>
             </Card>

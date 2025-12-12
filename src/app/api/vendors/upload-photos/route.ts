@@ -137,6 +137,7 @@ export async function POST(req: NextRequest) {
             .set({
                 businessPhotos: updatedPhotos,
                 currentStep: 4,
+                status: "BUSINESS_PHOTOS_UPLOADED"
             })
             .where(eq(vendorsTable.id, vendorId));
 

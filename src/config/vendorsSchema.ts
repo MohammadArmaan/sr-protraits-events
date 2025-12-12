@@ -7,6 +7,7 @@ import {
     json,
     pgTable,
 } from "drizzle-orm/pg-core";
+import { adminsTable } from "./adminsSchema";
 
 
 export const vendorsTable = pgTable("vendors", {
@@ -49,6 +50,8 @@ export const vendorsTable = pgTable("vendors", {
         withTimezone: true,
         mode: "date",
     }),
+
+    approvedByAdminId: integer().references(() => adminsTable.id),
 
     // Business details
     businessDescription: text("businessDescription"),

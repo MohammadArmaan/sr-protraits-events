@@ -87,6 +87,7 @@ export async function POST(req: NextRequest) {
             .set({
                 businessDescription,
                 currentStep: 3,
+                status: "BUSINESS_DESCRIPTION_ADDED"
             })
             .where(eq(vendorsTable.id, vendorId));
 

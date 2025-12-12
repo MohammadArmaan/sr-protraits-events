@@ -6,7 +6,7 @@ import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { logoutVendor } from "@/lib/sign-in/logout";
 
-export default function LogoutButton() {
+export default function VendorLogoutButton() {
     const router = useRouter();
 
     async function handleLogout() {
@@ -23,7 +23,7 @@ export default function LogoutButton() {
     return (
         <Button
             variant="destructive"
-            className="rounded-full flex items-center gap-2 px-6 py-2"
+            className="rounded-full w-full flex items-center gap-2 px-6 py-2"
             onClick={handleLogout}
         >
             <LogOut className="w-4 h-4" />
