@@ -57,6 +57,34 @@
       "when": 1765562107470,
       "tag": "0007_polite_crusher_hogan",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1765603689352,
+      "tag": "0008_silly_rocket_raccoon",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1765633665314,
+      "tag": "0009_vengeful_johnny_blaze",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1765639338404,
+      "tag": "0010_complex_ultimo",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1765640090312,
+      "tag": "0011_early_spiral",
+      "breakpoints": true
     }
   ]
 }

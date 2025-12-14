@@ -45,6 +45,7 @@ export async function GET(
             .select({
                 vendorId: vendorsTable.id,
                 fullName: vendorsTable.fullName,
+                occupation: vendorsTable.occupation,
                 businessName: vendorsTable.businessName,
                 email: vendorsTable.email,
                 profilePhoto: vendorsTable.profilePhoto,

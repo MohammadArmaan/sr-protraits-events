@@ -1,0 +1,1 @@
+ALTER TABLE "vendor_products" ADD COLUMN "featuredImageIndex" integer DEFAULT 0;

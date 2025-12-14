@@ -3,21 +3,21 @@ import jwt from "jsonwebtoken";
 
 type UserRole = "vendor" | "admin" | "customer";
 
-// -----------------------------
-// 1️⃣ PUBLIC ROUTES (no auth)
-// -----------------------------
+/* -----------------------------
+   1️⃣ GLOBAL PUBLIC ROUTES
+-------------------------------- */
 const globalPublicRoutes = [
-    "/",                // homepage
+    "/", // ONLY homepage
     "/about",
     "/contact",
     "/gallery",
     "/pricing",
 ];
 
-// -----------------------------
-// 2️⃣ AUTH ROUTES (also public)
-// -----------------------------
-const authRoutes = {
+/* -----------------------------
+   2️⃣ AUTH ROUTES (PUBLIC)
+-------------------------------- */
+const authRoutes: Record<UserRole, string[]> = {
     vendor: [
         "/vendor/sign-in",
         "/vendor/register",
@@ -37,53 +37,49 @@ const authRoutes = {
     ],
 };
 
-// -----------------------------
-// 3️⃣ PROTECTED ROUTES PER ROLE
-// -----------------------------
-const protectedRoutes = {
+/* -----------------------------
+   3️⃣ PROTECTED ROOT PATHS
+-------------------------------- */
+const protectedRoots: Record<UserRole, string> = {
     vendor: "/vendor",
     admin: "/admin",
     customer: "/customer",
 };
 
-// -----------------------------
-// Helper: check if path starts with any allowed route
-// -----------------------------
+/* -----------------------------
+   SAFE ROUTE MATCHER
+-------------------------------- */
 function matches(pathname: string, routes: string[]) {
-    return routes.some((route) => pathname.startsWith(route));
+    return routes.some((route) =>
+        route === "/" ? pathname === "/" : pathname.startsWith(route)
+    );
 }
 
 export function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
 
-    // -----------------------------
-    // Allow all global public routes
-    // -----------------------------
+    /* -----------------------------
+       Allow global public routes
+    -------------------------------- */
     if (matches(pathname, globalPublicRoutes)) {
         return NextResponse.next();
     }
 
-    // -----------------------------
-    // ROLE detection based on URL
-    // -----------------------------
+    /* -----------------------------
+       Detect role from URL
+    -------------------------------- */
     let role: UserRole | null = null;
-    if (pathname.startsWith("/vendor")) role = "vendor";
-    if (pathname.startsWith("/admin")) role = "admin";
-    if (pathname.startsWith("/customer")) role = "customer";
 
-    // If route doesn't belong to any role, allow
+    if (pathname.startsWith("/vendor")) role = "vendor";
+    else if (pathname.startsWith("/admin")) role = "admin";
+    else if (pathname.startsWith("/customer")) role = "customer";
+
+    // Not a role-based route → allow
     if (!role) return NextResponse.next();
 
-    // -----------------------------
-    // Allow access to auth routes (public)
-    // -----------------------------
-    if (matches(pathname, authRoutes[role])) {
-        return NextResponse.next();
-    }
-
-    // -----------------------------
-    // Validate Token
-    // -----------------------------
+    /* -----------------------------
+       Resolve token name
+    -------------------------------- */
     const tokenName =
         role === "vendor"
             ? "vendor_token"
@@ -93,8 +89,26 @@ export function middleware(req: NextRequest) {
 
     const token = req.cookies.get(tokenName)?.value;
 
+    /* -----------------------------
+       AUTH ROUTES LOGIC
+    -------------------------------- */
+    if (matches(pathname, authRoutes[role])) {
+        // Logged-in user trying to access auth page → redirect to dashboard
+        if (token) {
+            return NextResponse.redirect(
+                new URL(protectedRoots[role], req.url)
+            );
+        }
+        return NextResponse.next();
+    }
+
+    /* -----------------------------
+       PROTECTED ROUTES
+    -------------------------------- */
     if (!token) {
-        return NextResponse.redirect(new URL(`${protectedRoutes[role]}/sign-in`, req.url));
+        return NextResponse.redirect(
+            new URL(`${protectedRoots[role]}/sign-in`, req.url)
+        );
     }
 
     try {
@@ -102,26 +116,39 @@ export function middleware(req: NextRequest) {
             role: UserRole;
         };
 
-        // Role mismatch? BLOCK
+        // Role mismatch → block & clear cookie
         if (decoded.role !== role) {
             const res = NextResponse.redirect(
-                new URL(`${protectedRoutes[role]}/sign-in`, req.url)
+                new URL(`${protectedRoots[role]}/sign-in`, req.url)
             );
             res.cookies.delete(tokenName);
             return res;
         }
     } catch {
         const res = NextResponse.redirect(
-            new URL(`${protectedRoutes[role]}/sign-in`, req.url)
+            new URL(`${protectedRoots[role]}/sign-in`, req.url)
         );
         res.cookies.delete(tokenName);
         return res;
     }
 
-    // Token valid → allow
-    return NextResponse.next();
+    /* -----------------------------
+       Prevent BACK navigation
+       on protected pages
+    -------------------------------- */
+    const res = NextResponse.next();
+    res.headers.set(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate"
+    );
+    res.headers.set("Pragma", "no-cache");
+    res.headers.set("Expires", "0");
+    return res;
 }
 
+/* -----------------------------
+   MIDDLEWARE CONFIG
+-------------------------------- */
 export const config = {
     matcher: [
         "/vendor/:path*",

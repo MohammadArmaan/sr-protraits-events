@@ -8,9 +8,10 @@ import { VendorDetailsForm } from "@/components/vendor/profile/VendorDetailsForm
 import { VendorBusinessPhotos } from "@/components/vendor/profile/VendorBusinessPhotos";
 import { submitProfileEdit } from "@/lib/vendor/editProfile";
 import { toast } from "sonner";
-import { useVendor } from "@/hooks/useVendor";
+import { useVendor } from "@/hooks/queries/useVendor";
 import VendorLogoutButton from "@/components/vendor/VendorLogoutButton";
-
+import { useEditVendorProfile } from "@/hooks/queries/useEditVendorProfile";
+import Loader from "@/components/Loader";
 
 interface VendorProfileState {
     fullName: string;
@@ -25,7 +26,8 @@ interface VendorProfileState {
 }
 
 export default function VendorProfilePage() {
-    const { vendor } = useVendor();
+    const { data: vendor, isLoading } = useVendor();
+    const { mutateAsync: editProfile } = useEditVendorProfile();
     const [isEditing, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false); // ✅ NEW loader state
 
@@ -45,12 +47,28 @@ export default function VendorProfilePage() {
 
     const [profile, setProfile] = useState<VendorProfileState>(initialProfile);
 
-    if (vendor && profile.fullName === "" && initialProfile.fullName !== "") {
-        setProfile(initialProfile);
-    }
+    useEffect(() => {
+        if (!vendor) return;
+
+        setProfile({
+            fullName: vendor.fullName ?? "",
+            businessName: vendor.businessName ?? "",
+            occupation: vendor.occupation ?? "",
+            phone: vendor.phone ?? "",
+            address: vendor.address ?? "",
+            email: vendor.email ?? "",
+            businessDescription: vendor.businessDescription ?? "",
+            profilePhoto: vendor.profilePhoto ?? "",
+            businessPhotos: vendor.businessPhotos ?? [],
+        });
+
+        setExistingPhotos(vendor.businessPhotos ?? []);
+    }, [vendor]);
 
     const [newProfileFile, setNewProfileFile] = useState<File | null>(null);
-    const [existingPhotos, setExistingPhotos] = useState<string[]>(vendor?.businessPhotos ?? []);
+    const [existingPhotos, setExistingPhotos] = useState<string[]>(
+        vendor?.businessPhotos ?? []
+    );
     const [newBusinessFiles, setNewBusinessFiles] = useState<File[]>([]);
     const [removedPhotos, setRemovedPhotos] = useState<string[]>([]);
 
@@ -77,7 +95,7 @@ export default function VendorProfilePage() {
     // -------------------------------------------------
     async function handleSave() {
         try {
-            setIsSaving(true); // ⏳ Start loader
+            setIsSaving(true);
 
             const form = new FormData();
             form.append("token", localStorage.getItem("vendorToken") ?? "");
@@ -96,25 +114,33 @@ export default function VendorProfilePage() {
                 form.append("businessPhotos", file);
             });
 
-            form.append("existingBusinessPhotos", JSON.stringify(existingPhotos));
+            form.append(
+                "existingBusinessPhotos",
+                JSON.stringify(existingPhotos)
+            );
             form.append("removedBusinessPhotos", JSON.stringify(removedPhotos));
 
-            await submitProfileEdit(form);
+            await editProfile(form);
 
             toast.success("Submitted for admin approval");
             setIsEditing(false);
         } catch (error) {
-            toast.error("Failed to submit changes");
+            toast.error((error as Error).message);
         } finally {
-            setIsSaving(false); // ⏹ Stop loader
+            setIsSaving(false);
         }
     }
 
+    if (isLoading) {
+        return <Loader />;
+    }
 
     return (
         <main className="max-w-4xl mx-auto pt-20 pb-10">
             <h1 className="text-4xl font-bold mb-2">Vendor Profile</h1>
-            <p className="text-base text-muted-foreground mb-10">Manage your business information</p>
+            <p className="text-base text-muted-foreground mb-10">
+                Manage your business information
+            </p>
 
             <Card className="rounded-2xl">
                 <CardContent className="p-8 space-y-10">
@@ -172,7 +198,9 @@ export default function VendorProfilePage() {
                                 onClick={handleSave}
                                 disabled={isSaving}
                             >
-                                {isSaving ? "Saving Changes..." : "Save Changes"}
+                                {isSaving
+                                    ? "Saving Changes..."
+                                    : "Save Changes"}
                             </Button>
 
                             <Button
@@ -188,7 +216,9 @@ export default function VendorProfilePage() {
 
                     {/* LOGOUT BUTTON */}
                     <div className="pt-6 border-t">
-                        <h2 className="text-2xl font-semibold mb-5">Logout Account</h2>
+                        <h2 className="text-2xl font-semibold mb-5">
+                            Logout Account
+                        </h2>
                         <VendorLogoutButton />
                     </div>
                 </CardContent>

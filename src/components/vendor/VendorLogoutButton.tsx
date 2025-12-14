@@ -5,16 +5,23 @@ import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { logoutVendor } from "@/lib/sign-in/logout";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function VendorLogoutButton() {
     const router = useRouter();
+    const queryClient = useQueryClient();
 
     async function handleLogout() {
-        const ok = await logoutVendor(); 
+        const ok = await logoutVendor();
 
         if (ok) {
+            // 🔥 CLEAR ALL CACHED SERVER STATE
+            queryClient.clear();
+
             toast.success("Logged out");
-            router.push("/vendor/sign-in");
+
+            // Hard navigation to reset app state
+            window.location.replace("/vendor/sign-in");
         } else {
             toast.error("Failed to logout. Try again.");
         }
@@ -31,3 +38,4 @@ export default function VendorLogoutButton() {
         </Button>
     );
 }
+

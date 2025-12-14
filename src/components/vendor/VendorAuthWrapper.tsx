@@ -1,17 +1,16 @@
 "use client";
 
 import Loader from "@/components/Loader";
-import { useVendor } from "@/hooks/useVendor";
-
+import { useVendor } from "@/hooks/queries/useVendor";
 
 export default function VendorAuthWrapper({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    const { loading } = useVendor();
+    const { isLoading } = useVendor();
 
-    if (loading) {
+    if (isLoading) {
         return (
             <div className="flex justify-center items-center h-screen">
                 <Loader />

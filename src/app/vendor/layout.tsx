@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import VendorAuthWrapper from "@/components/vendor/VendorAuthWrapper";
+import { VendorNavbar } from "@/components/vendor/VendorNavbar";
 
 export const metadata: Metadata = {
     title: {
@@ -31,9 +32,12 @@ export default function VendorLayout({
 }) {
     return (
         <>
-
             {/* Client-side auth check */}
-            <VendorAuthWrapper>{children}</VendorAuthWrapper>
+
+                <VendorAuthWrapper>
+                    <VendorNavbar />
+                    {children}
+                </VendorAuthWrapper>
         </>
     );
 }
