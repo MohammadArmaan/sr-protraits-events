@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import type { VendorProduct } from "@/types/vendor-product";
 
-export function useFeaturedProducts() {
+export function useFeaturedVendorProducts() {
     return useQuery<VendorProduct[]>({
         queryKey: ["featured-products"],
         queryFn: async () => {

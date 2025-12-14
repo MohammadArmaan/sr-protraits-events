@@ -15,18 +15,17 @@ import {
 import { cn } from "@/lib/utils";
 import ThemeToggler from "../ThemeToggler";
 import { useTheme } from "next-themes";
+import { useVendor } from "@/hooks/queries/useVendor";
 
-interface VendorNavbarProps {
-    vendorId?: string;
-}
-
-export function VendorNavbar({ vendorId }: VendorNavbarProps) {
+export function VendorNavbar() {
+    const { data } = useVendor();
+    const vendorId = data?.id;
     const [searchQuery, setSearchQuery] = useState("");
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const router = useRouter();
     const pathname = usePathname();
 
-        const { theme, setTheme, resolvedTheme } = useTheme();
+    const { theme, setTheme, resolvedTheme } = useTheme();
 
     const toggleTheme = () => {
         setTheme(theme === "dark" ? "light" : "dark");
@@ -36,14 +35,11 @@ export function VendorNavbar({ vendorId }: VendorNavbarProps) {
         e.preventDefault();
         if (!searchQuery.trim()) return;
 
-        router.push(
-            `/vendor/shop?search=${encodeURIComponent(searchQuery)}`
-        );
+        router.push(`/vendor/shop?q=${encodeURIComponent(searchQuery)}`);
         setMobileMenuOpen(false);
     }
 
-    const isActive = (path: string) =>
-        pathname.startsWith(path);
+    const isActive = (path: string) => pathname.startsWith(path);
 
     return (
         <>
@@ -51,17 +47,20 @@ export function VendorNavbar({ vendorId }: VendorNavbarProps) {
                 <div className="bg-card/80 backdrop-blur-xl border border-border rounded-pill shadow-lg px-6 py-3">
                     <div className="flex items-center justify-between gap-6">
                         {/* Left: Logo */}
-                        <Link href="/vendor" className="flex items-center gap-3">
+                        <Link
+                            href="/vendor"
+                            className="flex items-center gap-3"
+                        >
                             <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-bold">
-                                VP
+                                SR
                             </div>
                             <div className="hidden md:flex flex-col">
                                 <span className="text-sm font-semibold">
-                                    VendorPortal
+                                    SR VendorPortal
                                 </span>
                                 {vendorId && (
                                     <span className="text-xs text-muted-foreground">
-                                        ID: #{vendorId}
+                                        ID: #VND{vendorId}
                                     </span>
                                 )}
                             </div>
@@ -95,12 +94,9 @@ export function VendorNavbar({ vendorId }: VendorNavbarProps) {
                                 size="icon"
                                 className={cn(
                                     "rounded-full",
-                                    isActive("/vendor/calendar") &&
-                                        "bg-muted"
+                                    isActive("/vendor/calendar") && "bg-muted"
                                 )}
-                                onClick={() =>
-                                    router.push("/vendor/calendar")
-                                }
+                                onClick={() => router.push("/vendor/calendar")}
                             >
                                 <Calendar className="h-5 w-5" />
                             </Button>
@@ -110,16 +106,9 @@ export function VendorNavbar({ vendorId }: VendorNavbarProps) {
                                 size="icon"
                                 className={cn(
                                     "rounded-full",
-                                    isActive("/vendor/profile") &&
-                                        "bg-muted"
+                                    isActive("/vendor/profile") && "bg-muted"
                                 )}
-                                onClick={() =>
-                                    router.push(
-                                        vendorId
-                                            ? `/vendor/profile/${vendorId}`
-                                            : "/vendor/profile"
-                                    )
-                                }
+                                onClick={() => router.push("/vendor/profile")}
                             >
                                 <User className="h-5 w-5" />
                             </Button>
@@ -196,11 +185,7 @@ export function VendorNavbar({ vendorId }: VendorNavbarProps) {
                                 variant="outline"
                                 className="rounded-xl flex flex-col h-20 gap-2"
                                 onClick={() => {
-                                    router.push(
-                                        vendorId
-                                            ? `/vendor/profile/${vendorId}`
-                                            : "/vendor/profile"
-                                    );
+                                    router.push("/vendor/profile");
                                     setMobileMenuOpen(false);
                                 }}
                             >

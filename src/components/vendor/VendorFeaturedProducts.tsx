@@ -1,10 +1,10 @@
 "use client";
 
-import { useFeaturedProducts } from "@/hooks/queries/useFeaturedProducts";
+import { useFeaturedVendorProducts } from "@/hooks/queries/useFeaturedVendorProducts";
 import { VendorProductCard } from "./VendorProductCard";
 
 export function VendorFeaturedProducts() {
-    const { data, isLoading } = useFeaturedProducts();
+    const { data, isLoading } = useFeaturedVendorProducts();
 
     if (isLoading) {
         return null; // skeleton later
@@ -34,7 +34,9 @@ export function VendorFeaturedProducts() {
                         ratingCount={product.ratingCount}
                         businessName={product.businessName}
                         occupation={product.occupation}
-                        businessPhoto={product.businessPhotos[product.featuredImageIndex]}
+                        businessPhoto={
+                            product.businessPhotos[product.featuredImageIndex]
+                        }
                     />
                 ))}
             </div>
