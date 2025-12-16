@@ -1,32 +1,25 @@
 export type AdvanceType = "PERCENTAGE" | "FIXED";
 
 export interface VendorProduct {
-    // Identifiers
     id: number;
     uuid: string;
 
-    // Product info
     title: string;
     description: string | null;
 
-    // Pricing
-    basePrice: number | string;
-    advanceType: AdvanceType;
-    advanceValue: number | string;
+    basePriceSingleDay: number;
+    basePriceMultiDay: number;
 
-    // Ratings
-    rating: number | string;
+    advanceType: "FIXED" | "PERCENTAGE";
+    advanceValue: number;
+
+    rating: number;
     ratingCount: number;
 
-    // Vendor relation
-    vendorId: number;
     businessName: string;
     occupation: string;
 
-    // Images
-    businessPhotos: string[];
+    images: string[];
     featuredImageIndex: number;
-
-    // Optional vendor image fallback
-    profilePhoto?: string | null;
 }
+

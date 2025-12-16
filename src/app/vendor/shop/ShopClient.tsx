@@ -32,7 +32,12 @@ export function ShopClient() {
                             id={product.id}
                             uuid={product.uuid}
                             title={product.title}
-                            basePrice={Number(product.basePrice)}
+                            basePriceSingleDay={Number(
+                                product.basePriceSingleDay
+                            )}
+                            basePriceMultiDay={Number(
+                                product.basePriceMultiDay
+                            )}
                             advanceType={product.advanceType}
                             advanceValue={Number(product.advanceValue)}
                             rating={Number(product.rating)}
@@ -40,7 +45,7 @@ export function ShopClient() {
                             businessName={product.businessName}
                             occupation={product.occupation}
                             businessPhoto={
-                                product.businessPhotos[
+                                product.images[
                                     product.featuredImageIndex
                                 ]
                             }

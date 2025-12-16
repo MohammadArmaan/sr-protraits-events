@@ -1,2 +1,0 @@
-ALTER TABLE "vendors" ADD COLUMN "approvedByAdminId" integer;--> statement-breakpoint
-ALTER TABLE "vendors" ADD CONSTRAINT "vendors_approvedByAdminId_admins_id_fk" FOREIGN KEY ("approvedByAdminId") REFERENCES "public"."admins"("id") ON DELETE no action ON UPDATE no action;

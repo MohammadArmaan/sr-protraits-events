@@ -18,7 +18,7 @@ export const vendorProductsTable = pgTable("vendor_products", {
     // Public-safe identifier
     uuid: uuid("uuid").defaultRandom().notNull().unique(),
 
-    //  Relations
+    /* -------- Relations -------- */
     vendorId: integer()
         .notNull()
         .references(() => vendorsTable.id),
@@ -27,36 +27,55 @@ export const vendorProductsTable = pgTable("vendor_products", {
         .notNull()
         .references(() => adminsTable.id),
 
-    //  Product identity
+    /* -------- Product Identity -------- */
     title: varchar("title", { length: 255 }).notNull(),
     description: text("description"),
 
-    //  Product images (copied/selected from vendor)
+    /* -------- Media -------- */
     images: varchar("images", { length: 500 }).array().default([]),
-
-    // Featured image index
     featuredImageIndex: integer("featuredImageIndex").default(0),
 
-    //  Buisness Detaisl
+    /* -------- Snapshot Business Info -------- */
     businessName: varchar("businessName", { length: 255 }).notNull(),
     occupation: varchar("occupation", { length: 255 }).notNull(),
 
-    //  Pricing
-    basePrice: numeric("basePrice", { precision: 10, scale: 2 }).notNull(),
+    /* -------- Pricing -------- */
 
-    //  Advance payment configuration
+    // For SINGLE_DAY bookings (time based)
+    basePriceSingleDay: numeric("basePriceSingleDay", {
+        precision: 10,
+        scale: 2,
+    }).notNull(),
+
+    // For MULTI_DAY bookings (per day, full day)
+    basePriceMultiDay: numeric("basePriceMultiDay", {
+        precision: 10,
+        scale: 2,
+    }).notNull(),
+
+    pricingUnit: varchar("pricingUnit", { length: 20 }).default("PER_DAY"),
+    /*
+      PER_DAY     → price × number of days
+      PER_EVENT   → future use
+    */
+
+    /* -------- Advance Payment -------- */
     advanceType: varchar("advanceType", { length: 20 }).default("PERCENTAGE"),
+    /*
+      PERCENTAGE
+      FIXED
+    */
     advanceValue: numeric("advanceValue", { precision: 10, scale: 2 }),
 
-    //  Rating (system controlled)
+    /* -------- Rating (System controlled) -------- */
     rating: numeric("rating", { precision: 2, scale: 1 }).default("0.0"),
     ratingCount: integer("ratingCount").default(0),
 
-    //  Flags
+    /* -------- Flags -------- */
     isFeatured: boolean("isFeatured").default(false),
     isActive: boolean("isActive").default(true),
 
-    //  Audit
+    /* -------- Audit -------- */
     createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow(),
 });

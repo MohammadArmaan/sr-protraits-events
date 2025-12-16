@@ -5,88 +5,70 @@ import { vendorsTable } from "@/config/vendorsSchema";
 import { eq, and } from "drizzle-orm";
 
 interface Params {
-    params: {
-        uuid: string;
-    };
+  params: { uuid: string };
 }
 
-export async function GET(
-    _req: NextRequest,
-    { params }: Params
-) {
-    try {
-        const { uuid } = await params;
+export async function GET(_req: NextRequest, { params }: Params) {
+  try {
+    const { uuid } = await params;
 
-        const [product] = await db
-            .select({
-                id: vendorProductsTable.id,
-                uuid: vendorProductsTable.uuid,
-                title: vendorProductsTable.title,
-                description: vendorProductsTable.description,
-                basePrice: vendorProductsTable.basePrice,
-                advanceType: vendorProductsTable.advanceType,
-                advanceValue: vendorProductsTable.advanceValue,
-                rating: vendorProductsTable.rating,
-                ratingCount: vendorProductsTable.ratingCount,
-                businessName: vendorProductsTable.businessName,
-                occupation: vendorProductsTable.occupation,
-                images: vendorProductsTable.images,
-                featuredImageIndex: vendorProductsTable.featuredImageIndex,
-            })
-            .from(vendorProductsTable)
-            .innerJoin(
-                vendorsTable,
-                eq(vendorProductsTable.vendorId, vendorsTable.id)
-            )
-            .where(
-                and(
-                    eq(vendorProductsTable.uuid, uuid),
-                    eq(vendorProductsTable.isActive, true),
-                    eq(vendorsTable.isApproved, true)
-                )
-            );
+    const [row] = await db
+      .select({
+        id: vendorProductsTable.id,
+        uuid: vendorProductsTable.uuid,
+        title: vendorProductsTable.title,
+        description: vendorProductsTable.description,
 
-        if (!product) {
-            return NextResponse.json(
-                { error: "Product not found" },
-                { status: 404 }
-            );
-        }
+        basePriceSingleDay: vendorProductsTable.basePriceSingleDay,
+        basePriceMultiDay: vendorProductsTable.basePriceMultiDay,
+        pricingUnit: vendorProductsTable.pricingUnit,
 
-        const businessPhotos = Array.isArray(product.images)
-            ? product.images
-            : [];
+        advanceType: vendorProductsTable.advanceType,
+        advanceValue: vendorProductsTable.advanceValue,
 
-        return NextResponse.json({
-            product: {
-                id: product.id,
-                uuid: product.uuid,
-                title: product.title,
-                description: product.description ?? null,
+        rating: vendorProductsTable.rating,
+        ratingCount: vendorProductsTable.ratingCount,
 
-                basePrice: product.basePrice,
-                advanceType: product.advanceType,
-                advanceValue: product.advanceValue,
+        businessName: vendorProductsTable.businessName,
+        occupation: vendorProductsTable.occupation,
 
-                rating: product.rating,
-                ratingCount: product.ratingCount,
+        images: vendorProductsTable.images,
+        featuredImageIndex: vendorProductsTable.featuredImageIndex,
+      })
+      .from(vendorProductsTable)
+      .innerJoin(
+        vendorsTable,
+        eq(vendorProductsTable.vendorId, vendorsTable.id)
+      )
+      .where(
+        and(
+          eq(vendorProductsTable.uuid, uuid),
+          eq(vendorProductsTable.isActive, true),
+          eq(vendorsTable.isApproved, true)
+        )
+      );
 
-                businessName: product.businessName,
-                occupation: product.occupation,
-
-                // 🔁 MATCH OTHER APIS
-                businessPhotos,
-                featuredImageIndex:
-                    typeof product.featuredImageIndex === "number"
-                        ? product.featuredImageIndex
-                        : 0,
-            },
-        });
-    } catch (error) {
-        console.error("Get Vendor Product Error:", error);
-        return NextResponse.json(
-            { error: "Internal server error" },
-            { status: 500 }
-        );
+    if (!row) {
+      return NextResponse.json(
+        { error: "Product not found" },
+        { status: 404 }
+      );
     }
+
+    return NextResponse.json({
+      product: {
+        ...row,
+        basePriceSingleDay: Number(row.basePriceSingleDay),
+        basePriceMultiDay: Number(row.basePriceMultiDay),
+        advanceValue: Number(row.advanceValue ?? 0),
+        rating: Number(row.rating),
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
 }

@@ -1,14 +1,24 @@
 import nodemailer from "nodemailer";
 
+interface EmailAttachment {
+    filename: string;
+    content: Buffer;
+    contentType?: string;
+}
+
+interface SendEmailParams {
+    to: string;
+    subject: string;
+    html: string;
+    attachments?: EmailAttachment[];
+}
+
 export async function sendEmail({
     to,
     subject,
     html,
-}: {
-    to: string;
-    subject: string;
-    html: string;
-}) {
+    attachments,
+}: SendEmailParams) {
     try {
         const transporter = nodemailer.createTransport({
             service: "gmail",
@@ -23,6 +33,7 @@ export async function sendEmail({
             to,
             subject,
             html,
+            attachments, // ✅ now supported
         });
 
         return { success: true };

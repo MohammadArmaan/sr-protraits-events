@@ -1,6 +1,6 @@
 {
-  "id": "05bde3f1-4e78-4ef0-a2b3-218efd5770c2",
-  "prevId": "843cbaa4-b662-4266-ab06-2874edbbb0f5",
+  "id": "e08a6a31-7da3-462b-87db-3a9692a2c565",
+  "prevId": "489bf6d4-0427-44ad-9848-405b0b715244",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -118,8 +118,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.vendor_profile_edits": {
-      "name": "vendor_profile_edits",
+    "public.coupon_codes": {
+      "name": "coupon_codes",
       "schema": "",
       "columns": {
         "id": {
@@ -129,7 +129,7 @@
           "notNull": true,
           "identity": {
             "type": "always",
-            "name": "vendor_profile_edits_id_seq",
+            "name": "coupon_codes_id_seq",
             "schema": "public",
             "increment": "1",
             "startWith": "1",
@@ -139,51 +139,52 @@
             "cycle": false
           }
         },
-        "vendorId": {
-          "name": "vendorId",
-          "type": "integer",
+        "uuid": {
+          "name": "uuid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "code": {
+          "name": "code",
+          "type": "varchar(50)",
           "primaryKey": false,
           "notNull": true
         },
-        "changes": {
-          "name": "changes",
-          "type": "json",
+        "type": {
+          "name": "type",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "minAmount": {
+          "name": "minAmount",
+          "type": "numeric(10, 2)",
           "primaryKey": false,
           "notNull": false
         },
-        "newProfilePhotoUrl": {
-          "name": "newProfilePhotoUrl",
-          "type": "varchar(500)",
+        "maxDiscount": {
+          "name": "maxDiscount",
+          "type": "numeric(10, 2)",
           "primaryKey": false,
           "notNull": false
         },
-        "oldProfilePhotoUrl": {
-          "name": "oldProfilePhotoUrl",
-          "type": "varchar(500)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "status": {
-          "name": "status",
-          "type": "varchar(50)",
+        "isActive": {
+          "name": "isActive",
+          "type": "boolean",
           "primaryKey": false,
           "notNull": false,
-          "default": "'PENDING'"
+          "default": true
         },
-        "approvedByAdminId": {
-          "name": "approvedByAdminId",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rejectedByAdminId": {
-          "name": "rejectedByAdminId",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reviewedAt": {
-          "name": "reviewedAt",
+        "expiresAt": {
+          "name": "expiresAt",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
@@ -197,49 +198,24 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "vendor_profile_edits_vendorId_vendors_id_fk": {
-          "name": "vendor_profile_edits_vendorId_vendors_id_fk",
-          "tableFrom": "vendor_profile_edits",
-          "tableTo": "vendors",
-          "columnsFrom": [
-            "vendorId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "coupon_codes_uuid_unique": {
+          "name": "coupon_codes_uuid_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "uuid"
+          ]
         },
-        "vendor_profile_edits_approvedByAdminId_admins_id_fk": {
-          "name": "vendor_profile_edits_approvedByAdminId_admins_id_fk",
-          "tableFrom": "vendor_profile_edits",
-          "tableTo": "admins",
-          "columnsFrom": [
-            "approvedByAdminId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "vendor_profile_edits_rejectedByAdminId_admins_id_fk": {
-          "name": "vendor_profile_edits_rejectedByAdminId_admins_id_fk",
-          "tableFrom": "vendor_profile_edits",
-          "tableTo": "admins",
-          "columnsFrom": [
-            "rejectedByAdminId"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
+        "coupon_codes_code_unique": {
+          "name": "coupon_codes_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "code"
+          ]
         }
       },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -362,6 +338,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "approvedByAdminId": {
+          "name": "approvedByAdminId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "businessDescription": {
           "name": "businessDescription",
           "type": "text",
@@ -424,7 +406,21 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "vendors_approvedByAdminId_admins_id_fk": {
+          "name": "vendors_approvedByAdminId_admins_id_fk",
+          "tableFrom": "vendors",
+          "tableTo": "admins",
+          "columnsFrom": [
+            "approvedByAdminId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "vendors_email_unique": {
@@ -432,6 +428,815 @@
           "nullsNotDistinct": false,
           "columns": [
             "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.vendor_profile_edits": {
+      "name": "vendor_profile_edits",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "vendor_profile_edits_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "vendorId": {
+          "name": "vendorId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "changes": {
+          "name": "changes",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "newProfilePhotoUrl": {
+          "name": "newProfilePhotoUrl",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "oldProfilePhotoUrl": {
+          "name": "oldProfilePhotoUrl",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "newBusinessPhotos": {
+          "name": "newBusinessPhotos",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'[]'::json"
+        },
+        "oldBusinessPhotos": {
+          "name": "oldBusinessPhotos",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'[]'::json"
+        },
+        "removedBusinessPhotos": {
+          "name": "removedBusinessPhotos",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'[]'::json"
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'PENDING'"
+        },
+        "approvedByAdminId": {
+          "name": "approvedByAdminId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rejectedByAdminId": {
+          "name": "rejectedByAdminId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reviewedAt": {
+          "name": "reviewedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "vendor_profile_edits_vendorId_vendors_id_fk": {
+          "name": "vendor_profile_edits_vendorId_vendors_id_fk",
+          "tableFrom": "vendor_profile_edits",
+          "tableTo": "vendors",
+          "columnsFrom": [
+            "vendorId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vendor_profile_edits_approvedByAdminId_admins_id_fk": {
+          "name": "vendor_profile_edits_approvedByAdminId_admins_id_fk",
+          "tableFrom": "vendor_profile_edits",
+          "tableTo": "admins",
+          "columnsFrom": [
+            "approvedByAdminId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vendor_profile_edits_rejectedByAdminId_admins_id_fk": {
+          "name": "vendor_profile_edits_rejectedByAdminId_admins_id_fk",
+          "tableFrom": "vendor_profile_edits",
+          "tableTo": "admins",
+          "columnsFrom": [
+            "rejectedByAdminId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.vendor_products": {
+      "name": "vendor_products",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "vendor_products_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "uuid": {
+          "name": "uuid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "vendorId": {
+          "name": "vendorId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdByAdminId": {
+          "name": "createdByAdminId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "images": {
+          "name": "images",
+          "type": "varchar(500)[]",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'{}'"
+        },
+        "featuredImageIndex": {
+          "name": "featuredImageIndex",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "businessName": {
+          "name": "businessName",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "occupation": {
+          "name": "occupation",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "basePriceSingleDay": {
+          "name": "basePriceSingleDay",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "basePriceMultiDay": {
+          "name": "basePriceMultiDay",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pricingUnit": {
+          "name": "pricingUnit",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'PER_DAY'"
+        },
+        "advanceType": {
+          "name": "advanceType",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'PERCENTAGE'"
+        },
+        "advanceValue": {
+          "name": "advanceValue",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rating": {
+          "name": "rating",
+          "type": "numeric(2, 1)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'0.0'"
+        },
+        "ratingCount": {
+          "name": "ratingCount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "isFeatured": {
+          "name": "isFeatured",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "isActive": {
+          "name": "isActive",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "vendor_products_vendorId_vendors_id_fk": {
+          "name": "vendor_products_vendorId_vendors_id_fk",
+          "tableFrom": "vendor_products",
+          "tableTo": "vendors",
+          "columnsFrom": [
+            "vendorId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vendor_products_createdByAdminId_admins_id_fk": {
+          "name": "vendor_products_createdByAdminId_admins_id_fk",
+          "tableFrom": "vendor_products",
+          "tableTo": "admins",
+          "columnsFrom": [
+            "createdByAdminId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "vendor_products_uuid_unique": {
+          "name": "vendor_products_uuid_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "uuid"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.vendor_banners": {
+      "name": "vendor_banners",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "vendor_banners_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "imageUrl": {
+          "name": "imageUrl",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "subtitle": {
+          "name": "subtitle",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ctaText": {
+          "name": "ctaText",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ctaLink": {
+          "name": "ctaLink",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "order": {
+          "name": "order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "createdByAdminId": {
+          "name": "createdByAdminId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "vendor_banners_createdByAdminId_admins_id_fk": {
+          "name": "vendor_banners_createdByAdminId_admins_id_fk",
+          "tableFrom": "vendor_banners",
+          "tableTo": "admins",
+          "columnsFrom": [
+            "createdByAdminId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.vendor_payments": {
+      "name": "vendor_payments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "vendor_payments_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "uuid": {
+          "name": "uuid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "vendorId": {
+          "name": "vendorId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vendorProductId": {
+          "name": "vendorProductId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "razorpayOrderId": {
+          "name": "razorpayOrderId",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "razorpayPaymentId": {
+          "name": "razorpayPaymentId",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "razorpaySignature": {
+          "name": "razorpaySignature",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'INR'"
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'CREATED'"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "vendor_payments_vendorId_vendors_id_fk": {
+          "name": "vendor_payments_vendorId_vendors_id_fk",
+          "tableFrom": "vendor_payments",
+          "tableTo": "vendors",
+          "columnsFrom": [
+            "vendorId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vendor_payments_vendorProductId_vendor_products_id_fk": {
+          "name": "vendor_payments_vendorProductId_vendor_products_id_fk",
+          "tableFrom": "vendor_payments",
+          "tableTo": "vendor_products",
+          "columnsFrom": [
+            "vendorProductId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "vendor_payments_uuid_unique": {
+          "name": "vendor_payments_uuid_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "uuid"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.vendor_bookings": {
+      "name": "vendor_bookings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "vendor_bookings_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "uuid": {
+          "name": "uuid",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "vendorId": {
+          "name": "vendorId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bookedByVendorId": {
+          "name": "bookedByVendorId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vendorProductId": {
+          "name": "vendorProductId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "paymentId": {
+          "name": "paymentId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bookingType": {
+          "name": "bookingType",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "startDate": {
+          "name": "startDate",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "endDate": {
+          "name": "endDate",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "startTime": {
+          "name": "startTime",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "endTime": {
+          "name": "endTime",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "basePrice": {
+          "name": "basePrice",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "totalDays": {
+          "name": "totalDays",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "totalAmount": {
+          "name": "totalAmount",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "couponCode": {
+          "name": "couponCode",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "discountAmount": {
+          "name": "discountAmount",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'0'"
+        },
+        "finalAmount": {
+          "name": "finalAmount",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'REQUESTED'"
+        },
+        "approvalExpiresAt": {
+          "name": "approvalExpiresAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notes": {
+          "name": "notes",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'WEB'"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "vendor_bookings_vendorId_vendors_id_fk": {
+          "name": "vendor_bookings_vendorId_vendors_id_fk",
+          "tableFrom": "vendor_bookings",
+          "tableTo": "vendors",
+          "columnsFrom": [
+            "vendorId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vendor_bookings_bookedByVendorId_vendors_id_fk": {
+          "name": "vendor_bookings_bookedByVendorId_vendors_id_fk",
+          "tableFrom": "vendor_bookings",
+          "tableTo": "vendors",
+          "columnsFrom": [
+            "bookedByVendorId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vendor_bookings_vendorProductId_vendor_products_id_fk": {
+          "name": "vendor_bookings_vendorProductId_vendor_products_id_fk",
+          "tableFrom": "vendor_bookings",
+          "tableTo": "vendor_products",
+          "columnsFrom": [
+            "vendorProductId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vendor_bookings_paymentId_vendor_payments_id_fk": {
+          "name": "vendor_bookings_paymentId_vendor_payments_id_fk",
+          "tableFrom": "vendor_bookings",
+          "tableTo": "vendor_payments",
+          "columnsFrom": [
+            "paymentId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "vendor_bookings_uuid_unique": {
+          "name": "vendor_bookings_uuid_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "uuid"
           ]
         }
       },

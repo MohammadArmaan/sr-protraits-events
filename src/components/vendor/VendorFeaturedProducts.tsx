@@ -27,7 +27,8 @@ export function VendorFeaturedProducts() {
                         id={product.id}
                         uuid={product.uuid}
                         title={product.title}
-                        basePrice={Number(product.basePrice)}
+                        basePriceSingleDay={Number(product.basePriceSingleDay)}
+                        basePriceMultiDay={Number(product.basePriceMultiDay)}
                         advanceType={product.advanceType}
                         advanceValue={Number(product.advanceValue)}
                         rating={Number(product.rating)}
@@ -35,7 +36,7 @@ export function VendorFeaturedProducts() {
                         businessName={product.businessName}
                         occupation={product.occupation}
                         businessPhoto={
-                            product.businessPhotos[product.featuredImageIndex]
+                            product.images[product.featuredImageIndex]
                         }
                     />
                 ))}

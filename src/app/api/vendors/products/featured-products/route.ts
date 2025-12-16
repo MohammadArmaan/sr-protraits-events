@@ -6,24 +6,26 @@ import { eq, and } from "drizzle-orm";
 
 export async function GET() {
     try {
-        const featuredProducts = await db
+        const rows = await db
             .select({
                 id: vendorProductsTable.id,
                 uuid: vendorProductsTable.uuid,
                 title: vendorProductsTable.title,
-                description: vendorProductsTable.description,
-                basePrice: vendorProductsTable.basePrice,
+
+                basePriceSingleDay: vendorProductsTable.basePriceSingleDay,
+                basePriceMultiDay: vendorProductsTable.basePriceMultiDay,
+
                 advanceType: vendorProductsTable.advanceType,
                 advanceValue: vendorProductsTable.advanceValue,
+
                 rating: vendorProductsTable.rating,
                 ratingCount: vendorProductsTable.ratingCount,
-                featuredImageIndex: vendorProductsTable.featuredImageIndex,
 
-                vendorId: vendorsTable.id,
-                businessName: vendorsTable.businessName,
-                occupation: vendorsTable.occupation,
-                businessPhotos: vendorsTable.businessPhotos,
-                profilePhoto: vendorsTable.profilePhoto,
+                businessName: vendorProductsTable.businessName,
+                occupation: vendorProductsTable.occupation,
+
+                images: vendorProductsTable.images,
+                featuredImageIndex: vendorProductsTable.featuredImageIndex,
             })
             .from(vendorProductsTable)
             .innerJoin(
@@ -37,15 +39,18 @@ export async function GET() {
                     eq(vendorsTable.isApproved, true)
                 )
             )
-            .orderBy(vendorProductsTable.createdAt)
-            .limit(8); // 🔥 IMPORTANT: cap results
+            .limit(8);
 
-        return NextResponse.json(
-            { products: featuredProducts },
-            { status: 200 }
-        );
-    } catch (error) {
-        console.error("Featured Products Error:", error);
+        return NextResponse.json({
+            products: rows.map((p) => ({
+                ...p,
+                basePriceSingleDay: Number(p.basePriceSingleDay),
+                basePriceMultiDay: Number(p.basePriceMultiDay),
+                advanceValue: Number(p.advanceValue ?? 0),
+                rating: Number(p.rating),
+            })),
+        });
+    } catch {
         return NextResponse.json(
             { error: "Failed to fetch featured products" },
             { status: 500 }

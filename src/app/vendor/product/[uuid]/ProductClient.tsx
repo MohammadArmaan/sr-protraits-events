@@ -21,24 +21,36 @@ export function ProductClient({ uuid }: Props) {
     const { data: product, isLoading } = useVendorProduct(uuid);
 
     const [activeImage, setActiveImage] = useState<number | null>(null);
-    const [date, setDate] = useState("");
-    const [time, setTime] = useState("");
 
-    if (isLoading || !product) {
-        return <Loader />;
-    }
+    // booking states
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
+    const [startTime, setStartTime] = useState("");
+    const [endTime, setEndTime] = useState("");
 
-    const images = product.businessPhotos;
+    if (isLoading || !product) return <Loader />;
+
+    const images = product.images;
     const featuredIndex = product.featuredImageIndex ?? 0;
     const displayIndex = activeImage ?? featuredIndex;
 
+    const isMultiDay =
+        startDate && endDate && new Date(endDate) > new Date(startDate);
+
+    const numberOfDays = isMultiDay
+        ? Math.ceil(
+              (new Date(endDate).getTime() - new Date(startDate).getTime()) /
+                  (1000 * 60 * 60 * 24)
+          ) + 1
+        : 1;
+
+    const basePrice = isMultiDay
+        ? Number(product.basePriceMultiDay) * numberOfDays
+        : Number(product.basePriceSingleDay);
+
     const advanceAmount =
         product.advanceType === "PERCENTAGE"
-            ? Math.round(
-                  (Number(product.basePrice) *
-                      Number(product.advanceValue)) /
-                      100
-              )
+            ? Math.round((basePrice * Number(product.advanceValue)) / 100)
             : Number(product.advanceValue);
 
     return (
@@ -56,13 +68,12 @@ export function ProductClient({ uuid }: Props) {
                         </div>
                     </Zoom>
 
-                    {/* Thumbnails */}
                     <div className="grid grid-cols-4 gap-3">
-                        {images.map((img, idx) => (
+                        {images.map((img: string, idx: number) => (
                             <button
                                 key={idx}
                                 onClick={() => setActiveImage(idx)}
-                                className={`relative aspect-[4/3] rounded-xl overflow-hidden border transition-all ${
+                                className={`aspect-[4/3] rounded-xl overflow-hidden border ${
                                     idx === displayIndex
                                         ? "border-primary"
                                         : "border-border opacity-70 hover:opacity-100"
@@ -81,13 +92,11 @@ export function ProductClient({ uuid }: Props) {
                 {/* DETAILS */}
                 <div className="space-y-6">
                     <div>
-                        <Badge className="mb-3 bg-gradient-primary border-gradient-primary font-bold">
+                        <Badge className="mb-3 bg-gradient-primary font-bold">
                             {product.occupation}
                         </Badge>
 
-                        <h1 className="text-4xl font-bold">
-                            {product.title}
-                        </h1>
+                        <h1 className="text-4xl font-bold">{product.title}</h1>
 
                         <p className="text-muted-foreground mt-2">
                             {product.businessName}
@@ -109,74 +118,97 @@ export function ProductClient({ uuid }: Props) {
                         <CardContent className="p-6 space-y-4">
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">
-                                    Base Price
+                                    {isMultiDay
+                                        ? `Price (${numberOfDays} days)`
+                                        : "Single Day Price"}
                                 </span>
                                 <span className="font-medium">
-                                    ₹
-                                    {Number(
-                                        product.basePrice
-                                    ).toLocaleString()}
+                                    ₹{basePrice.toLocaleString()}
                                 </span>
                             </div>
 
-                            <div className="flex justify-between items-baseline">
+                            <div className="flex justify-between">
                                 <span className="text-muted-foreground">
                                     Advance Required
                                 </span>
                                 <span className="text-2xl font-bold text-primary">
-                                    ₹{advanceAmount}
+                                    ₹{advanceAmount.toLocaleString()}
                                 </span>
                             </div>
 
-                            {/* ✅ Description added here */}
                             {product.description && (
-                                <p className="text-sm text-muted-foreground leading-relaxed pt-2 border-t border-border">
+                                <p className="text-sm text-muted-foreground pt-3 border-t">
                                     {product.description}
                                 </p>
                             )}
                         </CardContent>
                     </Card>
 
-                    {/* BOOKING (NO PAYMENT YET) */}
+                    {/* BOOKING */}
                     <Card className="rounded-2xl">
                         <CardContent className="p-6 space-y-4">
                             <h3 className="text-xl font-semibold">
-                                Book This Vendor
+                                Request Booking
                             </h3>
 
                             <div>
-                                <Label className="flex items-center gap-2">
-                                    <Calendar className="h-4 w-4" />
-                                    Event Date
-                                </Label>
+                                <Label>Start Date</Label>
                                 <Input
                                     type="date"
-                                    value={date}
+                                    value={startDate}
                                     onChange={(e) =>
-                                        setDate(e.target.value)
+                                        setStartDate(e.target.value)
                                     }
                                 />
                             </div>
 
                             <div>
-                                <Label className="flex items-center gap-2">
-                                    <Clock className="h-4 w-4" />
-                                    Event Time
-                                </Label>
+                                <Label>End Date (optional)</Label>
                                 <Input
-                                    type="time"
-                                    value={time}
-                                    onChange={(e) =>
-                                        setTime(e.target.value)
-                                    }
+                                    type="date"
+                                    value={endDate}
+                                    min={startDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
                                 />
                             </div>
 
+                            {!isMultiDay && (
+                                <>
+                                    <div>
+                                        <Label className="flex gap-2 items-center">
+                                            <Clock className="h-4 w-4" />
+                                            Start Time
+                                        </Label>
+                                        <Input
+                                            type="time"
+                                            value={startTime}
+                                            onChange={(e) =>
+                                                setStartTime(e.target.value)
+                                            }
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <Label>End Time</Label>
+                                        <Input
+                                            type="time"
+                                            value={endTime}
+                                            onChange={(e) =>
+                                                setEndTime(e.target.value)
+                                            }
+                                        />
+                                    </div>
+                                </>
+                            )}
+
                             <Button
-                                disabled={!date || !time}
+                                disabled={
+                                    !startDate ||
+                                    (!isMultiDay && (!startTime || !endTime))
+                                }
                                 className="w-full bg-gradient-primary rounded-pill"
                             >
-                                Book Now (Payment Coming Soon)
+                                Send Booking Request
                             </Button>
                         </CardContent>
                     </Card>

@@ -45,17 +45,17 @@ export async function GET(req: NextRequest) {
         }
 
         if (minPrice) {
-            conditions.push(gte(vendorProductsTable.basePrice, minPrice));
+            conditions.push(gte(vendorProductsTable.basePriceSingleDay, minPrice));
         }
 
         if (maxPrice) {
-            conditions.push(lte(vendorProductsTable.basePrice, maxPrice));
+            conditions.push(lte(vendorProductsTable.basePriceSingleDay, maxPrice));
         }
 
         /* ------------------ SORT ------------------ */
         const SORT_MAP: Record<string, SortOption> = {
-            price_asc: asc(vendorProductsTable.basePrice),
-            price_desc: desc(vendorProductsTable.basePrice),
+            price_asc: asc(vendorProductsTable.basePriceSingleDay),
+            price_desc: desc(vendorProductsTable.basePriceSingleDay),
             rating_desc: desc(vendorProductsTable.rating),
             newest: desc(vendorProductsTable.createdAt),
         };
@@ -69,7 +69,8 @@ export async function GET(req: NextRequest) {
                 uuid: vendorProductsTable.uuid,
                 title: vendorProductsTable.title,
                 description: vendorProductsTable.description,
-                basePrice: vendorProductsTable.basePrice,
+                basePriceSingleDay: vendorProductsTable.basePriceSingleDay,
+                basePriceMultiDay: vendorProductsTable.basePriceMultiDay,
                 advanceType: vendorProductsTable.advanceType,
                 advanceValue: vendorProductsTable.advanceValue,
                 rating: vendorProductsTable.rating,
@@ -104,7 +105,7 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json({
             products: products.map((p) => {
-                const businessPhotos = Array.isArray(p.images) ? p.images : [];
+                const images = Array.isArray(p.images) ? p.images : [];
 
                 return {
                     id: p.id,
@@ -112,7 +113,8 @@ export async function GET(req: NextRequest) {
                     title: p.title,
                     description: p.description ?? null,
 
-                    basePrice: p.basePrice,
+                    basePriceSingleDay: p.basePriceSingleDay,
+                    basePriceMultiDay: p.basePriceMultiDay,
                     advanceType: p.advanceType,
                     advanceValue: p.advanceValue,
 
@@ -123,7 +125,7 @@ export async function GET(req: NextRequest) {
                     occupation: p.occupation,
 
                     // 👇 MATCH FEATURED API
-                    businessPhotos,
+                    images,
                     featuredImageIndex:
                         typeof p.featuredImageIndex === "number"
                             ? p.featuredImageIndex

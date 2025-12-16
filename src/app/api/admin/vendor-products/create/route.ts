@@ -5,6 +5,8 @@ import { vendorProductsTable } from "@/config/vendorProductsSchema";
 import { vendorsTable } from "@/config/vendorsSchema";
 import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
+import { sendEmail } from "@/lib/sendEmail";
+import { vendorProductCreatedTemplate } from "@/lib/email-templates/vendorProductCreatedTemplate";
 
 interface AdminTokenPayload {
     adminId: number;
@@ -16,10 +18,7 @@ export async function POST(req: NextRequest) {
         /* ---------------- AUTH ---------------- */
         const token = req.cookies.get("admin_token")?.value;
         if (!token) {
-            return NextResponse.json(
-                { error: "Unauthorized" },
-                { status: 401 }
-            );
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const decoded = jwt.verify(
@@ -38,19 +37,41 @@ export async function POST(req: NextRequest) {
             description,
             images,
             featuredImageIndex,
-            basePrice,
+
+            basePriceSingleDay,
+            basePriceMultiDay,
+            pricingUnit,
+
             advanceType,
             advanceValue,
             isFeatured,
             isActive,
         } = await req.json();
 
-        if (!vendorId || !title || !basePrice) {
+        if (
+            !vendorId ||
+            !title ||
+            basePriceSingleDay === undefined ||
+            basePriceMultiDay === undefined
+        ) {
             return NextResponse.json(
-                { error: "vendorId, title and basePrice are required" },
+                {
+                    error:
+                        "vendorId, title, basePriceSingleDay and basePriceMultiDay are required",
+                },
                 { status: 400 }
             );
         }
+
+        if (basePriceSingleDay <= 0 || basePriceMultiDay <= 0) {
+            return NextResponse.json(
+                { error: "Prices must be greater than zero" },
+                { status: 400 }
+            );
+        }
+
+        const resolvedPricingUnit =
+            pricingUnit === "PER_EVENT" ? "PER_EVENT" : "PER_DAY";
 
         /* ---------------- FETCH VENDOR ---------------- */
         const [vendor] = await db
@@ -60,6 +81,7 @@ export async function POST(req: NextRequest) {
                 occupation: vendorsTable.occupation,
                 isApproved: vendorsTable.isApproved,
                 businessPhotos: vendorsTable.businessPhotos,
+                email: vendorsTable.email,
             })
             .from(vendorsTable)
             .where(eq(vendorsTable.id, Number(vendorId)));
@@ -71,8 +93,6 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        /* ------------------ VENDOR APPROVAL CHECK ------------------ */
-
         if (!vendor.isApproved) {
             return NextResponse.json(
                 { error: "Vendor is not approved" },
@@ -80,8 +100,7 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        /* ------------------ VALIDATE ADVANCE LOGIC ------------------ */
-
+        /* ---------------- ADVANCE VALIDATION ---------------- */
         if (advanceType === "PERCENTAGE") {
             if (
                 typeof advanceValue !== "number" ||
@@ -96,20 +115,27 @@ export async function POST(req: NextRequest) {
         }
 
         if (advanceType === "FIXED") {
+            const maxBase = Math.max(
+                basePriceSingleDay,
+                basePriceMultiDay
+            );
+
             if (
                 typeof advanceValue !== "number" ||
                 advanceValue <= 0 ||
-                advanceValue >= basePrice
+                advanceValue >= maxBase
             ) {
                 return NextResponse.json(
                     {
-                        error: "Fixed advance must be greater than 0 and less than base price",
+                        error:
+                            "Fixed advance must be greater than 0 and less than product price",
                     },
                     { status: 400 }
                 );
             }
         }
 
+        /* ---------------- IMAGES ---------------- */
         const finalImages = Array.isArray(images)
             ? images
             : vendor.businessPhotos ?? [];
@@ -138,20 +164,19 @@ export async function POST(req: NextRequest) {
                 vendorId: vendor.id,
                 createdByAdminId: decoded.adminId,
 
-                // snapshot
                 businessName: vendor.businessName,
                 occupation: vendor.occupation,
 
                 title,
                 description: description ?? null,
 
-                images: Array.isArray(images)
-                    ? images
-                    : vendor.businessPhotos ?? [],
-
+                images: finalImages,
                 featuredImageIndex: imageIndex,
 
-                basePrice,
+                basePriceSingleDay,
+                basePriceMultiDay,
+                pricingUnit: resolvedPricingUnit,
+
                 advanceType: advanceType ?? "PERCENTAGE",
                 advanceValue: advanceValue ?? null,
 
@@ -159,6 +184,17 @@ export async function POST(req: NextRequest) {
                 isActive: isActive !== false,
             })
             .returning();
+
+        /* ---------------- EMAIL ---------------- */
+        await sendEmail({
+            to: vendor.email,
+            subject: "New Product Created",
+            html: vendorProductCreatedTemplate(
+                vendor.businessName,
+                product.title,
+                product.uuid
+            ),
+        });
 
         return NextResponse.json(
             {
