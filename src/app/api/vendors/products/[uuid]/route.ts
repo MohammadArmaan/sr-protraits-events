@@ -16,6 +16,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
       .select({
         id: vendorProductsTable.id,
         uuid: vendorProductsTable.uuid,
+        vendorId: vendorProductsTable.vendorId,
         title: vendorProductsTable.title,
         description: vendorProductsTable.description,
 

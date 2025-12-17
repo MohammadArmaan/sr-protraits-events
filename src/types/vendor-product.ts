@@ -3,6 +3,7 @@ export type AdvanceType = "PERCENTAGE" | "FIXED";
 export interface VendorProduct {
     id: number;
     uuid: string;
+    vendorId: number;
 
     title: string;
     description: string | null;

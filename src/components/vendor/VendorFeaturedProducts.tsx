@@ -2,16 +2,27 @@
 
 import { useFeaturedVendorProducts } from "@/hooks/queries/useFeaturedVendorProducts";
 import { VendorProductCard } from "./VendorProductCard";
+import { VendorShopCardSkeleton } from "../skeleton/VendorShopCardSkeleton";
 
 export function VendorFeaturedProducts() {
     const { data, isLoading } = useFeaturedVendorProducts();
 
     if (isLoading) {
-        return null; // skeleton later
+        return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array.from({ length: 6 }).map((_, i) => (
+                    <VendorShopCardSkeleton key={i} />
+                ))}
+            </div>
+        );
     }
 
     if (!data || data.length === 0) {
-        return null;
+        return (
+            <p className="text-muted-foreground flex items-center justify-center">
+                No vendors found with that data.
+            </p>
+        );
     }
 
     return (

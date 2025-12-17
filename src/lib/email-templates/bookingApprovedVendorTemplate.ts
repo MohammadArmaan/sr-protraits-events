@@ -36,7 +36,7 @@ export function bookingApprovedVendorTemplate(
             <strong>₹${finalAmount.toLocaleString()}</strong>
           </p>
 
-          <a href="${process.env.DOMAIN}/booking/pay/${bookingUuid}"
+          <a href="${process.env.DOMAIN}/vendor/bookings/pay/${bookingUuid}"
             style="display:inline-block;padding:16px 36px;
                    color:white;text-decoration:none;
                    border-radius:9999px;

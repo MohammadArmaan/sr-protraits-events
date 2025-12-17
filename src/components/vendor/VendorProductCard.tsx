@@ -58,7 +58,7 @@ export function VendorProductCard({
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
 
-                <Badge className="absolute top-3 right-3 bg-card/90 backdrop-blur">
+                <Badge className="absolute top-3 right-3 bg-card/90 backdrop-blur bg-gradient-primary border-none font-bold">
                     {occupation}
                 </Badge>
             </div>

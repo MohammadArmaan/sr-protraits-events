@@ -12,6 +12,7 @@ import { useVendor } from "@/hooks/queries/useVendor";
 import VendorLogoutButton from "@/components/vendor/VendorLogoutButton";
 import { useEditVendorProfile } from "@/hooks/queries/useEditVendorProfile";
 import Loader from "@/components/Loader";
+import { ProfilePageSkeleton } from "@/components/skeleton/ProfilePageSkeleton";
 
 interface VendorProfileState {
     fullName: string;
@@ -132,7 +133,7 @@ export default function VendorProfilePage() {
     }
 
     if (isLoading) {
-        return <Loader />;
+        return <ProfilePageSkeleton />;
     }
 
     return (

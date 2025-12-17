@@ -149,8 +149,9 @@ export function ShopFilters() {
                     <Button
                         className="w-full bg-gradient-primary font-bold"
                         onClick={applyFilters}
+                        disabled={priceLoading}
                     >
-                        Apply Filters
+                        {!priceLoading ? "Apply Filters" : "Applying Filters..."}
                     </Button>
 
                     <Button

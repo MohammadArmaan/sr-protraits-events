@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { useBanners } from "@/hooks/queries/useBanners";
+import { BannerSkeleton } from "../skeleton/BannerSkeleton";
 
 export const VendorHeroSlider = () => {
     const router = useRouter();
@@ -33,7 +34,13 @@ export const VendorHeroSlider = () => {
        LOADING STATE
     ----------------------------- */
     if (isLoading) {
-        return null; // later: skeleton
+        return (
+            <div className="space-y-6">
+                {Array.from({ length: 2 }).map((_, i) => (
+                    <BannerSkeleton key={i} />
+                ))}
+            </div>
+        );
     }
 
     if (banners.length === 0) {

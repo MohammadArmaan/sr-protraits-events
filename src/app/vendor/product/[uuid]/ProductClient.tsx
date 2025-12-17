@@ -5,94 +5,84 @@ import Zoom from "react-medium-image-zoom";
 import "react-medium-image-zoom/dist/styles.css";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Star, Calendar, Clock } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Star } from "lucide-react";
 import { useVendorProduct } from "@/hooks/queries/useVendorProduct";
-import Loader from "@/components/Loader";
+import { VendorBookingForm } from "@/components/vendor/booking/VendorBookingForm";
+import { ProductSkeleton } from "@/components/skeleton/VendorProductSkeleton";
+import { useVendor } from "@/hooks/queries/useVendor";
 
 interface Props {
     uuid: string;
 }
 
 export function ProductClient({ uuid }: Props) {
-    const { data: product, isLoading } = useVendorProduct(uuid);
-
+    const { data: product, isLoading, error } = useVendorProduct(uuid);
     const [activeImage, setActiveImage] = useState<number | null>(null);
+    const { data: me } = useVendor();
 
-    // booking states
-    const [startDate, setStartDate] = useState("");
-    const [endDate, setEndDate] = useState("");
-    const [startTime, setStartTime] = useState("");
-    const [endTime, setEndTime] = useState("");
+    // SINGLE loading check - this was the main issue!
+    if (isLoading) {
+        return <ProductSkeleton />;
+    }
 
-    if (isLoading || !product) return <Loader />;
+    // Handle error or missing product
+    if (error || !product) {
+        return (
+            <div className="pt-28 text-center text-muted-foreground">
+                {error ? "Failed to load product" : "Product not found"}
+            </div>
+        );
+    }
 
-    const images = product.images;
+    const images = product.images || [];
     const featuredIndex = product.featuredImageIndex ?? 0;
     const displayIndex = activeImage ?? featuredIndex;
-
-    const isMultiDay =
-        startDate && endDate && new Date(endDate) > new Date(startDate);
-
-    const numberOfDays = isMultiDay
-        ? Math.ceil(
-              (new Date(endDate).getTime() - new Date(startDate).getTime()) /
-                  (1000 * 60 * 60 * 24)
-          ) + 1
-        : 1;
-
-    const basePrice = isMultiDay
-        ? Number(product.basePriceMultiDay) * numberOfDays
-        : Number(product.basePriceSingleDay);
-
-    const advanceAmount =
-        product.advanceType === "PERCENTAGE"
-            ? Math.round((basePrice * Number(product.advanceValue)) / 100)
-            : Number(product.advanceValue);
 
     return (
         <main className="pt-28 px-4 md:px-8 pb-16">
             <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-10">
                 {/* IMAGE GALLERY */}
                 <div className="space-y-4">
-                    <Zoom>
-                        <div className="aspect-[4/3] rounded-2xl overflow-hidden cursor-zoom-in">
-                            <img
-                                src={images[displayIndex]}
-                                alt={product.title}
-                                className="w-full h-full object-cover rounded-2xl"
-                            />
-                        </div>
-                    </Zoom>
+                    {images.length > 0 && (
+                        <>
+                            <Zoom>
+                                <div className="aspect-[4/3] rounded-2xl overflow-hidden cursor-zoom-in">
+                                    <img
+                                        src={images[displayIndex]}
+                                        alt={product.title}
+                                        className="w-full h-full object-cover rounded-2xl"
+                                    />
+                                </div>
+                            </Zoom>
 
-                    <div className="grid grid-cols-4 gap-3">
-                        {images.map((img: string, idx: number) => (
-                            <button
-                                key={idx}
-                                onClick={() => setActiveImage(idx)}
-                                className={`aspect-[4/3] rounded-xl overflow-hidden border ${
-                                    idx === displayIndex
-                                        ? "border-primary"
-                                        : "border-border opacity-70 hover:opacity-100"
-                                }`}
-                            >
-                                <img
-                                    src={img}
-                                    alt={`Gallery ${idx}`}
-                                    className="w-full h-full object-cover"
-                                />
-                            </button>
-                        ))}
-                    </div>
+                            <div className="grid grid-cols-4 gap-3">
+                                {images.map((img: string, idx: number) => (
+                                    <button
+                                        key={idx}
+                                        onClick={() => setActiveImage(idx)}
+                                        className={`aspect-[4/3] rounded-xl overflow-hidden border ${
+                                            idx === displayIndex
+                                                ? "border-primary"
+                                                : "border-border opacity-70 hover:opacity-100"
+                                        }`}
+                                    >
+                                        <img
+                                            src={img}
+                                            alt={`Gallery ${idx}`}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* DETAILS */}
                 <div className="space-y-6">
                     <div>
-                        <Badge className="mb-3 bg-gradient-primary font-bold">
+                        <Badge className="mb-3 bg-gradient-primary font-bold border-gradient-primary">
                             {product.occupation}
                         </Badge>
 
@@ -105,34 +95,51 @@ export function ProductClient({ uuid }: Props) {
                         <div className="flex items-center gap-2 mt-3">
                             <Star className="h-5 w-5 fill-accent text-accent" />
                             <span className="font-medium">
-                                {Number(product.rating).toFixed(1)}
+                                {Number(product.rating || 0).toFixed(1)}
                             </span>
                             <span className="text-sm text-muted-foreground">
-                                ({product.ratingCount} reviews)
+                                ({product.ratingCount || 0} reviews)
                             </span>
                         </div>
                     </div>
 
-                    {/* PRICING */}
+                    {/* PRICING INFO */}
                     <Card className="rounded-2xl">
                         <CardContent className="p-6 space-y-4">
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">
-                                    {isMultiDay
-                                        ? `Price (${numberOfDays} days)`
-                                        : "Single Day Price"}
+                                    Single Day Price
                                 </span>
                                 <span className="font-medium">
-                                    ₹{basePrice.toLocaleString()}
+                                    ₹
+                                    {Number(
+                                        product.basePriceSingleDay || 0
+                                    ).toLocaleString()}
                                 </span>
                             </div>
 
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">
-                                    Advance Required
+                                    Multi-Day Price (per day)
                                 </span>
-                                <span className="text-2xl font-bold text-primary">
-                                    ₹{advanceAmount.toLocaleString()}
+                                <span className="font-medium">
+                                    ₹
+                                    {Number(
+                                        product.basePriceMultiDay || 0
+                                    ).toLocaleString()}
+                                </span>
+                            </div>
+
+                            <div className="flex justify-between pt-3 border-t">
+                                <span className="text-muted-foreground">
+                                    Advance Payment
+                                </span>
+                                <span className="text-lg font-bold text-primary">
+                                    {product.advanceType === "PERCENTAGE"
+                                        ? `${product.advanceValue}%`
+                                        : `₹${Number(
+                                              product.advanceValue || 0
+                                          ).toLocaleString()}`}
                                 </span>
                             </div>
 
@@ -144,74 +151,20 @@ export function ProductClient({ uuid }: Props) {
                         </CardContent>
                     </Card>
 
-                    {/* BOOKING */}
-                    <Card className="rounded-2xl">
-                        <CardContent className="p-6 space-y-4">
-                            <h3 className="text-xl font-semibold">
-                                Request Booking
-                            </h3>
-
-                            <div>
-                                <Label>Start Date</Label>
-                                <Input
-                                    type="date"
-                                    value={startDate}
-                                    onChange={(e) =>
-                                        setStartDate(e.target.value)
-                                    }
-                                />
-                            </div>
-
-                            <div>
-                                <Label>End Date (optional)</Label>
-                                <Input
-                                    type="date"
-                                    value={endDate}
-                                    min={startDate}
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                />
-                            </div>
-
-                            {!isMultiDay && (
-                                <>
-                                    <div>
-                                        <Label className="flex gap-2 items-center">
-                                            <Clock className="h-4 w-4" />
-                                            Start Time
-                                        </Label>
-                                        <Input
-                                            type="time"
-                                            value={startTime}
-                                            onChange={(e) =>
-                                                setStartTime(e.target.value)
-                                            }
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <Label>End Time</Label>
-                                        <Input
-                                            type="time"
-                                            value={endTime}
-                                            onChange={(e) =>
-                                                setEndTime(e.target.value)
-                                            }
-                                        />
-                                    </div>
-                                </>
-                            )}
-
-                            <Button
-                                disabled={
-                                    !startDate ||
-                                    (!isMultiDay && (!startTime || !endTime))
-                                }
-                                className="w-full bg-gradient-primary rounded-pill"
-                            >
-                                Send Booking Request
-                            </Button>
-                        </CardContent>
-                    </Card>
+                    {/* BOOKING FORM */}
+                    <VendorBookingForm
+                        vendorId={product.vendorId}
+                        vendorProductId={product.id}
+                        basePriceSingleDay={Number(
+                            product.basePriceSingleDay || 0
+                        )}
+                        basePriceMultiDay={Number(
+                            product.basePriceMultiDay || 0
+                        )}
+                        advanceType={product.advanceType}
+                        advanceValue={Number(product.advanceValue || 0)}
+                        loggedInVendorId={me?.id}
+                    />
                 </div>
             </div>
         </main>

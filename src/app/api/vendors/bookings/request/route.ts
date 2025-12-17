@@ -155,45 +155,62 @@ export async function POST(req: NextRequest) {
 
             if (!coupon) {
                 return NextResponse.json(
-                    { error: "Invalid coupon code" },
+                    { error: "Invalid or inactive coupon code" },
                     { status: 400 }
                 );
             }
 
-            if (coupon.expiresAt && coupon.expiresAt < new Date()) {
+            const now = new Date();
+
+            if (coupon.expiresAt && coupon.expiresAt < now) {
                 return NextResponse.json(
-                    { error: "Coupon expired" },
+                    { error: "Coupon has expired" },
                     { status: 400 }
                 );
             }
 
             if (coupon.minAmount && totalAmount < Number(coupon.minAmount)) {
                 return NextResponse.json(
-                    { error: "Order value too low for coupon" },
+                    {
+                        error: `Minimum order amount ₹${coupon.minAmount} required for this coupon`,
+                    },
                     { status: 400 }
                 );
             }
 
+            // ---- Calculate Discount ----
             if (coupon.type === "FLAT") {
                 discountAmount = Number(coupon.value);
             }
 
             if (coupon.type === "PERCENT") {
-                discountAmount = (totalAmount * Number(coupon.value)) / 100;
+                discountAmount = Math.round(
+                    (totalAmount * Number(coupon.value)) / 100
+                );
             }
 
             if (coupon.type === "UPTO") {
-                const percent = (totalAmount * Number(coupon.value)) / 100;
-                discountAmount = Math.min(
-                    percent,
-                    Number(coupon.maxDiscount ?? percent)
+                const percentDiscount = Math.round(
+                    (totalAmount * Number(coupon.value)) / 100
+                );
+
+                discountAmount = coupon.maxDiscount
+                    ? Math.min(percentDiscount, Number(coupon.maxDiscount))
+                    : percentDiscount;
+            }
+
+            // Safety clamp
+            discountAmount = Math.min(discountAmount, totalAmount);
+
+            if (discountAmount <= 0) {
+                return NextResponse.json(
+                    { error: "Coupon not applicable" },
+                    { status: 400 }
                 );
             }
 
             appliedCoupon = coupon.code;
         }
-
-        discountAmount = Math.min(discountAmount, totalAmount);
         const finalAmount = totalAmount - discountAmount;
 
         /* ---------------- FETCH BOOKED VENDOR ---------------- */
