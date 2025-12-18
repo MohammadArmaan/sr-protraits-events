@@ -213,6 +213,25 @@ export async function POST(req: NextRequest) {
         }
         const finalAmount = totalAmount - discountAmount;
 
+        /* ---------------- ADVANCE & REMAINING ---------------- */
+        let advanceAmount = 0;
+
+        // advance config comes from product
+        if (product.advanceType === "PERCENTAGE") {
+            advanceAmount = Math.round(
+                (finalAmount * Number(product.advanceValue)) / 100
+            );
+        }
+
+        if (product.advanceType === "FIXED") {
+            advanceAmount = Number(product.advanceValue);
+        }
+
+        // Safety clamps
+        advanceAmount = Math.max(0, Math.min(advanceAmount, finalAmount));
+
+        const remainingAmount = finalAmount - advanceAmount;
+
         /* ---------------- FETCH BOOKED VENDOR ---------------- */
         const [vendor] = await db
             .select({
@@ -256,15 +275,12 @@ export async function POST(req: NextRequest) {
 
             bookingType,
 
-            // ✅ date() columns → string
             startDate: dateOnly(start),
             endDate: dateOnly(end),
 
-            // ✅ time() columns → string | null
             startTime: bookingType === "SINGLE_DAY" ? startTime : null,
             endTime: bookingType === "SINGLE_DAY" ? endTime : null,
 
-            // ✅ numeric() columns → string
             basePrice: num(basePrice),
             totalDays,
             totalAmount: num(totalAmount),
@@ -273,9 +289,11 @@ export async function POST(req: NextRequest) {
             discountAmount: num(discountAmount),
             finalAmount: num(finalAmount),
 
-            status: "REQUESTED",
+            // ✅ NEW (critical)
+            advanceAmount: num(advanceAmount),
+            remainingAmount: num(remainingAmount),
 
-            // ✅ timestamp() → Date is correct
+            status: "REQUESTED",
             approvalExpiresAt: new Date(Date.now() + HOURS_3),
 
             notes: notes ?? null,

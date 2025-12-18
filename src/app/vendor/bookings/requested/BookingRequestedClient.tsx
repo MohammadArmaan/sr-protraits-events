@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useQuery } from "@tanstack/react-query";
+
 import { useBookingDecisionDetails } from "@/hooks/queries/useBookingDecisionDetails";
 import { BookingDetailsSkeleton } from "@/components/skeleton/BookingDetailsSkeleton";
 
@@ -14,36 +14,13 @@ interface Props {
     uuid: string;
 }
 
-interface BookingResponse {
-    booking: {
-        uuid: string;
-        status: string;
-        bookingType: string;
-        startDate: string;
-        endDate: string;
-        startTime?: string | null;
-        endTime?: string | null;
-        totalDays: number;
-        finalAmount: string;
-
-        product: {
-            title: string;
-        };
-
-        vendor: {
-            businessName: string;
-            email: string;
-        };
-    };
-}
-
 export function BookingRequestedClient({ uuid }: Props) {
     const router = useRouter();
 
-    const { data, isLoading, error } = useBookingDecisionDetails(uuid)
+    const { data, isLoading, error } = useBookingDecisionDetails(uuid);
 
     if (isLoading) {
-        return <BookingDetailsSkeleton />
+        return <BookingDetailsSkeleton />;
     }
 
     if (error || !data?.booking) {
@@ -55,6 +32,10 @@ export function BookingRequestedClient({ uuid }: Props) {
     }
 
     const { booking } = data;
+
+    const totalAmount = Number(booking.finalAmount);
+const advanceAmount = Number(booking.advanceAmount);
+const remainingAmount = Number(booking.remainingAmount);
 
     return (
         <main className="pt-28 px-4 pb-20">
@@ -75,7 +56,7 @@ export function BookingRequestedClient({ uuid }: Props) {
                             <span className="font-medium">
                                 {booking.vendor.businessName}
                             </span>
-                            . You will be notified once the vendor responds.
+                            . You’ll be notified once the vendor responds.
                         </p>
 
                         {/* Booking Summary */}
@@ -123,17 +104,30 @@ export function BookingRequestedClient({ uuid }: Props) {
                                 </span>
                             </div>
 
-                            <div className="flex justify-between border-t pt-2 font-semibold">
-                                <span>Amount</span>
-                                <span className="text-primary">
-                                    ₹
-                                    {Number(
-                                        booking.finalAmount
-                                    ).toLocaleString()}
-                                </span>
+                            {/* Payment Info */}
+                            <div className="border-t pt-2 space-y-1">
+                                    <div className="flex justify-between text-xs text-foreground text-bold">
+                                    <span>Total Ammount</span>
+                                    <span>
+                                        ₹{totalAmount.toLocaleString()}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between font-semibold">
+                                    <span>Advance Payable (after approval)</span>
+                                    <span className="text-primary">
+                                        ₹{advanceAmount.toLocaleString()}
+                                    </span>
+                                </div>
+
+                                <div className="flex justify-between text-xs text-muted-foreground">
+                                    <span>Remaining (after event)</span>
+                                    <span>
+                                        ₹{remainingAmount.toLocaleString()}
+                                    </span>
+                                </div>
                             </div>
 
-                            <div className="flex justify-between text-xs text-muted-foreground">
+                            <div className="flex justify-between text-xs text-muted-foreground pt-1">
                                 <span>Status</span>
                                 <span>{booking.status}</span>
                             </div>

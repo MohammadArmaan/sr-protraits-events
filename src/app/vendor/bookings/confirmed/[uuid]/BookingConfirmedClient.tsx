@@ -2,7 +2,12 @@
 
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Calendar, Clock, CreditCard, User } from "lucide-react";
+import {
+    CheckCircle2,
+    Calendar,
+    Clock,
+    CreditCard,
+} from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,6 +44,13 @@ export function BookingConfirmedClient({ uuid }: Props) {
         );
     }
 
+    /* ----------------------------------
+       Payment breakdown (UI only)
+    ---------------------------------- */
+    const totalAmount = Number(booking.finalAmount);
+const advanceAmount = Number(booking.advanceAmount);
+const remainingAmount = Number(booking.remainingAmount);
+
     return (
         <main className="pt-28 px-4 md:px-8 pb-16">
             <div className="max-w-2xl mx-auto">
@@ -53,7 +65,7 @@ export function BookingConfirmedClient({ uuid }: Props) {
                     </h1>
 
                     <p className="text-muted-foreground text-lg">
-                        Payment successful. Your vendor has been notified.
+                        Advance payment successful. Your vendor has been notified.
                     </p>
                 </div>
 
@@ -113,17 +125,38 @@ export function BookingConfirmedClient({ uuid }: Props) {
                                 </div>
                             )}
 
-                            <div className="flex justify-between pt-3">
-                                <span className="flex items-center gap-2 text-muted-foreground">
-                                    <CreditCard className="h-4 w-4" />
-                                    Amount Paid
-                                </span>
-                                <span className="text-2xl font-bold text-success">
-                                    ₹
-                                    {Number(
-                                        booking.finalAmount
-                                    ).toLocaleString()}
-                                </span>
+                            {/* PAYMENT BREAKDOWN */}
+                            <div className="pt-4 space-y-2">
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">
+                                        Total Contract Amount
+                                    </span>
+                                    <span className="font-medium">
+                                        ₹{totalAmount.toLocaleString()}
+                                    </span>
+                                </div>
+
+                                <div className="flex justify-between text-success font-semibold">
+                                    <span className="flex items-center gap-2">
+                                        <CreditCard className="h-4 w-4" />
+                                        Advance Paid
+                                    </span>
+                                    <span>
+                                        ₹{advanceAmount.toLocaleString()}
+                                    </span>
+                                </div>
+
+                                <div className="flex justify-between text-destructive">
+                                    <span>Remaining Amount</span>
+                                    <span>
+                                        ₹{remainingAmount.toLocaleString()}
+                                    </span>
+                                </div>
+
+                                <p className="text-xs text-muted-foreground">
+                                    Remaining amount to be paid after event
+                                    completion.
+                                </p>
                             </div>
                         </div>
                     </CardContent>
@@ -134,9 +167,9 @@ export function BookingConfirmedClient({ uuid }: Props) {
                     <CardContent className="p-4">
                         <h3 className="font-semibold mb-2">What’s Next?</h3>
                         <ul className="text-sm text-muted-foreground space-y-2">
-                            <li>• Confirmation email has been sent</li>
+                            <li>• Advance payment recorded</li>
                             <li>• Vendor will contact you shortly</li>
-                            <li>• Invoice is attached in your email</li>
+                            <li>• Final payment after event completion</li>
                         </ul>
                     </CardContent>
                 </Card>

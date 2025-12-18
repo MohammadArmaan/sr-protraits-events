@@ -1,0 +1,1 @@
+ALTER TABLE "vendor_calendar" ADD COLUMN "notes" varchar(300);

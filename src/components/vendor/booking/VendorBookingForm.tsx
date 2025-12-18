@@ -25,11 +25,11 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 
-import { useBlockedDates } from "@/hooks/queries/useBlockedDates";
-import { useCreateVendorBooking } from "@/hooks/queries/useCreateVendorBooking";
 import { DateRangePicker } from "@/components/ui/date-picker";
-import { useActiveBookingStatus } from "@/hooks/queries/useActiveBookingStatus";
+import { useCreateVendorBooking } from "@/hooks/queries/useCreateVendorBooking";
 import { useValidateVendorCoupon } from "@/hooks/queries/useValidateVendorCoupon";
+import { useActiveBookingStatus } from "@/hooks/queries/useActiveBookingStatus";
+import { useBookingAvailability } from "@/hooks/queries/useBookingAvailability";
 import { ValidateCouponResponse } from "@/types/vendor-booking";
 
 /* ----------------------------------
@@ -66,30 +66,35 @@ export const VendorBookingForm = ({
 }: VendorBookingFormProps) => {
     const router = useRouter();
 
+    /* ---------------- State ---------------- */
     const [dateRange, setDateRange] = useState<DateRange>();
     const [startTime, setStartTime] = useState<string>();
     const [endTime, setEndTime] = useState<string>();
+    const [notes, setNotes] = useState("");
 
     const [couponInput, setCouponInput] = useState("");
     const [couponPreview, setCouponPreview] =
         useState<ValidateCouponResponse | null>(null);
 
+    /* ---------------- Hooks ---------------- */
     const validateCoupon = useValidateVendorCoupon();
-
-    const { data: blockedData } = useBlockedDates(vendorId);
-    const { data: activeBooking } = useActiveBookingStatus(
-        vendorProductId,
-        loggedInVendorId!
-    );
-
     const createBooking = useCreateVendorBooking();
 
-    const isSelfBooking = loggedInVendorId === vendorId;
+    const { data: availabilityData } =
+        useBookingAvailability(vendorProductId);
+
+    const { data: activeBooking } = useActiveBookingStatus(
+        vendorProductId,
+        loggedInVendorId ?? 0
+    );
+
+    /* ---------------- Guards ---------------- */
+    const isSelfBooking =
+        loggedInVendorId !== undefined && loggedInVendorId === vendorId;
+
     const isAlreadyBookedByMe = activeBooking?.hasActiveBooking ?? false;
 
-    /* ----------------------------------
-     Derived state
-    ---------------------------------- */
+    /* ---------------- Derived state ---------------- */
     const isMultiDay =
         dateRange?.from && dateRange?.to
             ? !isSameDay(dateRange.from, dateRange.to)
@@ -106,9 +111,7 @@ export const VendorBookingForm = ({
             : basePriceSingleDay;
     }, [isMultiDay, totalDays, basePriceSingleDay, basePriceMultiDay]);
 
-    /* ----------------------------------
-     Pricing (from backend preview)
-    ---------------------------------- */
+    /* ---------------- Pricing ---------------- */
     const discountAmount = couponPreview?.discountAmount ?? 0;
     const finalAmount = couponPreview?.finalAmount ?? baseAmount;
 
@@ -122,25 +125,25 @@ export const VendorBookingForm = ({
         return advanceValue;
     }, [finalAmount, advanceType, advanceValue]);
 
-    /* ----------------------------------
-     Disable dates
-    ---------------------------------- */
+    const remainingAmount = Math.max(finalAmount - advanceAmount, 0);
+
+    /* ---------------- Disable dates ---------------- */
     const isDateDisabled = (date: Date) => {
         const today = startOfDay(new Date());
-        if (isBefore(date, today)) return true;
+        const current = startOfDay(date);
+
+        if (isBefore(current, today)) return true;
 
         return (
-            blockedData?.blocked.some((b) => {
-                const start = startOfDay(new Date(b.startDate));
-                const end = startOfDay(new Date(b.endDate));
-                return date >= start && date <= end;
+            availabilityData?.unavailableRanges.some((range) => {
+                const start = startOfDay(new Date(range.startDate));
+                const end = startOfDay(new Date(range.endDate));
+                return current >= start && current <= end;
             }) ?? false
         );
     };
 
-    /* ----------------------------------
-     Time slots
-    ---------------------------------- */
+    /* ---------------- Time slots ---------------- */
     const timeSlots = useMemo(() => {
         const slots: string[] = [];
         for (let h = MIN_HOUR; h <= MAX_HOUR; h++) {
@@ -149,15 +152,14 @@ export const VendorBookingForm = ({
         return slots;
     }, []);
 
+    /* ---------------- Date change ---------------- */
     const handleDateChange = (range: DateRange | undefined) => {
         if (range?.from && range?.to) {
             const days =
                 differenceInCalendarDays(range.to, range.from) + 1;
 
             if (days > MAX_DAYS) {
-                toast.error(
-                    `Maximum booking duration is ${MAX_DAYS} days`
-                );
+                toast.error(`Maximum booking duration is ${MAX_DAYS} days`);
                 return;
             }
         }
@@ -170,9 +172,7 @@ export const VendorBookingForm = ({
         }
     };
 
-    /* ----------------------------------
-     Submit
-    ---------------------------------- */
+    /* ---------------- Submit ---------------- */
     const handleSubmit = () => {
         if (!dateRange?.from) {
             toast.error("Please select date");
@@ -192,6 +192,7 @@ export const VendorBookingForm = ({
                 startTime: isMultiDay ? undefined : startTime,
                 endTime: isMultiDay ? undefined : endTime,
                 couponCode: couponPreview?.code,
+                notes: notes || undefined,
             },
             {
                 onSuccess: (data) => {
@@ -205,14 +206,13 @@ export const VendorBookingForm = ({
         );
     };
 
-    /* ----------------------------------
-     Render
-    ---------------------------------- */
+    /* ---------------- Render ---------------- */
     return (
         <Card className="rounded-2xl">
             <CardContent className="p-6 space-y-6">
                 <h3 className="text-xl font-semibold">Request Booking</h3>
 
+                {/* Date picker */}
                 <div>
                     <Label className="mb-2 block">Select Date(s)</Label>
                     <DateRangePicker
@@ -222,10 +222,11 @@ export const VendorBookingForm = ({
                     />
                 </div>
 
+                {/* Time slots */}
                 {!isMultiDay && dateRange?.from && (
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <Label className="mb-2 flex gap-2 items-center">
+                            <Label className="mb-2 flex items-center gap-2">
                                 <Clock className="h-4 w-4" /> Start Time
                             </Label>
                             <Select value={startTime} onValueChange={setStartTime}>
@@ -266,7 +267,7 @@ export const VendorBookingForm = ({
 
                 {/* Coupon */}
                 <div className="space-y-2">
-                    <Label className="flex gap-2 items-center">
+                    <Label className="flex items-center gap-2">
                         <Tag className="h-4 w-4" /> Coupon Code
                     </Label>
 
@@ -313,6 +314,16 @@ export const VendorBookingForm = ({
                     </div>
                 </div>
 
+                {/* Notes */}
+                <div className="space-y-2">
+                    <Label>Notes (optional)</Label>
+                    <Input
+                        placeholder="Any special instructions (max 50 words)"
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                    />
+                </div>
+
                 {/* Price Summary */}
                 {dateRange?.from && (
                     <Card className="bg-muted/40 rounded-xl">
@@ -330,10 +341,15 @@ export const VendorBookingForm = ({
                             )}
 
                             <div className="flex justify-between font-semibold border-t pt-2">
-                                <span>Advance Payable</span>
+                                <span>Advance Payable (now)</span>
                                 <span className="text-primary">
                                     ₹{advanceAmount.toLocaleString()}
                                 </span>
+                            </div>
+
+                            <div className="flex justify-between text-muted-foreground">
+                                <span>Remaining (after event)</span>
+                                <span>₹{remainingAmount.toLocaleString()}</span>
                             </div>
                         </CardContent>
                     </Card>

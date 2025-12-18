@@ -15,6 +15,7 @@ import {
     RazorpaySuccessResponse,
 } from "@/types/vendor-booking";
 import { BookingPaymentSkeleton } from "@/components/skeleton/BookingPaymentSkeleton";
+import { useQueryClient } from "@tanstack/react-query";
 
 declare global {
     interface Window {
@@ -34,10 +35,11 @@ export function BookingPayClient({ uuid }: Props) {
     const { data, isLoading, error } = useBookingDecisionDetails(uuid);
     const createPayment = useCreateBookingPayment();
     const verifyPayment = useVerifyBookingPayment();
+    const queryClient = useQueryClient();
 
     /* ----------------------------------
-   Load Razorpay script
-  ---------------------------------- */
+       Load Razorpay script
+    ---------------------------------- */
     useEffect(() => {
         const script = document.createElement("script");
         script.src = "https://checkout.razorpay.com/v1/checkout.js";
@@ -46,11 +48,9 @@ export function BookingPayClient({ uuid }: Props) {
     }, []);
 
     /* ----------------------------------
-   Guards
-  ---------------------------------- */
-    if (isLoading) {
-        return <BookingPaymentSkeleton />;
-    }
+       Guards
+    ---------------------------------- */
+    if (isLoading) return <BookingPaymentSkeleton />;
 
     if (error || !data) {
         return (
@@ -63,7 +63,7 @@ export function BookingPayClient({ uuid }: Props) {
     const { booking } = data;
 
     if (booking.status === "CONFIRMED") {
-        router.push(`vendor/bookings/confirmed/${uuid}`);
+        router.push(`/vendor/bookings/confirmed/${uuid}`);
         return null;
     }
 
@@ -76,8 +76,15 @@ export function BookingPayClient({ uuid }: Props) {
     }
 
     /* ----------------------------------
-   Payment handler
-  ---------------------------------- */
+       Payment breakdown (UI only)
+    ---------------------------------- */
+    const totalAmount = Number(booking.finalAmount);
+    const advanceAmount = Number(booking.advanceAmount);
+    const remainingAmount = Number(booking.remainingAmount);
+
+    /* ----------------------------------
+       Payment handler
+    ---------------------------------- */
     const handlePay = () => {
         createPayment.mutate(
             { uuid },
@@ -92,10 +99,15 @@ export function BookingPayClient({ uuid }: Props) {
                         description: booking.product.title,
                         handler: (response: RazorpaySuccessResponse) => {
                             verifyPayment.mutate(response, {
-                                onSuccess: () => {
-                                    toast.success("Payment successful 🎉");
+                                onSuccess: async () => {
+                                    toast.success(
+                                        "Advance payment successful 🎉"
+                                    );
+                                    await queryClient.invalidateQueries({
+                                        queryKey: ["booking-decision", uuid],
+                                    });
                                     router.push(
-                                        `vendor/bookings/confirmed/${uuid}`
+                                        `/vendor/bookings/confirmed/${uuid}`
                                     );
                                 },
                                 onError: () => {
@@ -119,14 +131,16 @@ export function BookingPayClient({ uuid }: Props) {
     };
 
     /* ----------------------------------
-   UI
-  ---------------------------------- */
+       UI
+    ---------------------------------- */
     return (
         <main className="pt-28 px-4 pb-16">
             <div className="max-w-xl mx-auto">
                 <Card className="rounded-2xl">
                     <CardContent className="p-6 space-y-6">
-                        <h1 className="text-2xl font-bold">Complete Payment</h1>
+                        <h1 className="text-2xl font-bold">
+                            Complete Advance Payment
+                        </h1>
 
                         <div className="space-y-2 text-sm">
                             <p>
@@ -137,10 +151,22 @@ export function BookingPayClient({ uuid }: Props) {
                                 <strong>Service:</strong>{" "}
                                 {booking.product.title}
                             </p>
-                            <p>
-                                <strong>Amount:</strong> ₹
-                                {Number(booking.finalAmount).toLocaleString()}
-                            </p>
+
+                            <div className="border-t pt-2 space-y-1">
+                                <p>
+                                    <strong>Total Amount:</strong> ₹
+                                    {totalAmount.toLocaleString()}
+                                </p>
+                                <p className="text-green-600 font-semibold">
+                                    Advance Payable Now: ₹
+                                    {advanceAmount.toLocaleString()}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                    Remaining ₹
+                                    {remainingAmount.toLocaleString()} to be
+                                    paid after event completion
+                                </p>
+                            </div>
                         </div>
 
                         <Button
@@ -153,7 +179,7 @@ export function BookingPayClient({ uuid }: Props) {
                         >
                             {createPayment.isPending
                                 ? "Initializing Payment…"
-                                : "Pay Now"}
+                                : "Pay Advance"}
                         </Button>
                     </CardContent>
                 </Card>

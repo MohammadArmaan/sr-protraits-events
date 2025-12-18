@@ -23,16 +23,15 @@ export const vendorBookingsTable = pgTable("vendor_bookings", {
         .notNull()
         .references(() => vendorsTable.id),
 
-    bookedByVendorId: integer()           
-    .notNull()
-    .references(() => vendorsTable.id), // requester
+    bookedByVendorId: integer()
+        .notNull()
+        .references(() => vendorsTable.id), // requester
 
     vendorProductId: integer()
         .notNull()
         .references(() => vendorProductsTable.id),
 
-    paymentId: integer()
-        .references(() => vendorPaymentsTable.id),
+    paymentId: integer().references(() => vendorPaymentsTable.id),
 
     /* -------- Booking Type -------- */
     bookingType: varchar("bookingType", { length: 20 }).notNull(),
@@ -66,6 +65,15 @@ export const vendorBookingsTable = pgTable("vendor_bookings", {
         scale: 2,
     }).notNull(),
 
+    advanceAmount: numeric("advanceAmount", {
+        precision: 10,
+        scale: 2,
+    }).notNull(),
+
+    remainingAmount: numeric("remainingAmount", {
+        precision: 10,
+        scale: 2,
+    }).notNull(),
     /* -------- Booking Lifecycle -------- */
     status: varchar("status", { length: 30 }).default("REQUESTED"),
     /*

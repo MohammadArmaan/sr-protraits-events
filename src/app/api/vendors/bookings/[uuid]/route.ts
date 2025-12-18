@@ -23,18 +23,24 @@ export async function GET(
                 { status: 400 }
             );
         }
-
-        const [booking] = await db
+        const result = await db
             .select({
                 uuid: vendorBookingsTable.uuid,
                 status: vendorBookingsTable.status,
                 bookingType: vendorBookingsTable.bookingType,
+
                 startDate: vendorBookingsTable.startDate,
                 endDate: vendorBookingsTable.endDate,
                 startTime: vendorBookingsTable.startTime,
                 endTime: vendorBookingsTable.endTime,
+
                 totalDays: vendorBookingsTable.totalDays,
+
+                totalAmount: vendorBookingsTable.totalAmount,
                 finalAmount: vendorBookingsTable.finalAmount,
+                advanceAmount: vendorBookingsTable.advanceAmount,
+                remainingAmount: vendorBookingsTable.remainingAmount,
+
                 approvalExpiresAt: vendorBookingsTable.approvalExpiresAt,
 
                 product: {
@@ -65,6 +71,8 @@ export async function GET(
                 eq(vendorBookingsTable.bookedByVendorId, bookedByVendor.id)
             )
             .where(eq(vendorBookingsTable.uuid, uuid));
+
+        const booking = result[0];
 
         if (!booking) {
             return NextResponse.json(

@@ -3,7 +3,9 @@ export function bookingApprovedVendorTemplate(
   userName: string,
   productTitle: string,
   bookingUuid: string,
-  finalAmount: number
+  advanceAmount: number,
+  finalAmount: number,
+  totalDays?: number
 ) {
   const gradientPrimary =
     "linear-gradient(135deg, hsl(220, 80%, 55%), hsl(180, 70%, 50%))";
@@ -31,10 +33,27 @@ export function bookingApprovedVendorTemplate(
             has been <strong>approved</strong>.
           </p>
 
-          <p style="font-size:16px;color:#444;">
-            Final Amount to Pay:
-            <strong>₹${finalAmount.toLocaleString()}</strong>
-          </p>
+          ${
+            totalDays && totalDays > 1
+              ? `<p style="font-size:15px;color:#555;">
+                   Duration: <strong>${totalDays} days</strong>
+                 </p>`
+              : ""
+          }
+
+          <table width="100%" cellpadding="0" cellspacing="0"
+            style="margin:20px 0;font-size:15px;color:#333;">
+            <tr>
+              <td align="left">Total Booking Amount</td>
+              <td align="right"><strong>₹${finalAmount.toLocaleString()}</strong></td>
+            </tr>
+            <tr>
+              <td align="left">Advance Payable Now</td>
+              <td align="right" style="color:#16a34a;">
+                <strong>₹${advanceAmount.toLocaleString()}</strong>
+              </td>
+            </tr>
+          </table>
 
           <a href="${process.env.DOMAIN}/vendor/bookings/pay/${bookingUuid}"
             style="display:inline-block;padding:16px 36px;
@@ -42,11 +61,11 @@ export function bookingApprovedVendorTemplate(
                    border-radius:9999px;
                    background:${gradientPrimary};
                    font-weight:bold;margin-top:20px;">
-            Pay Now
+            Pay Advance Now
           </a>
 
           <p style="margin-top:18px;font-size:13px;color:#777;">
-            Please complete payment to confirm your booking.
+            Remaining amount will be collected after event completion.
           </p>
         </td>
       </tr>

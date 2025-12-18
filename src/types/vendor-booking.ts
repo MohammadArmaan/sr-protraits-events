@@ -1,5 +1,3 @@
-// src/types/vendors-booking.ts
-
 /* ----------------------------------
  Shared enums
 ---------------------------------- */
@@ -9,12 +7,28 @@ export type BookingStatus =
     | "REQUESTED"
     | "PAYMENT_PENDING"
     | "CONFIRMED"
+    | "APPROVED"
     | "REJECTED"
     | "EXPIRED"
     | "CANCELLED"
     | "COMPLETED";
 
 export type PaymentStatus = "CREATED" | "PAID" | "FAILED";
+
+/* ----------------------------------
+ Booking Availability
+---------------------------------- */
+export type UnavailableSource = "BOOKING" | "VENDOR_BLOCK";
+
+export interface UnavailableRange {
+    startDate: string; // YYYY-MM-DD
+    endDate: string; // YYYY-MM-DD
+    source: UnavailableSource;
+}
+
+export interface AvailabilityResponse {
+    unavailableRanges: UnavailableRange[];
+}
 
 /* ----------------------------------
  Booking request
@@ -25,7 +39,7 @@ export interface CreateBookingRequest {
     endDate?: string; // YYYY-MM-DD
     startTime?: string; // HH:mm
     endTime?: string; // HH:mm
-    couponCode?: string; // FLAT50 -> This format
+    couponCode?: string;
     notes?: string;
 }
 
@@ -42,12 +56,14 @@ export interface ValidateCouponResponse {
     discountAmount: number;
     finalAmount: number;
 }
+
 /* ----------------------------------
- Booking entity
+ Booking entity (DB snapshot)
 ---------------------------------- */
 export interface VendorBooking {
     id: number;
     uuid: string;
+
     vendorId: number;
     bookedByVendorId: number;
     vendorProductId: number;
@@ -60,6 +76,7 @@ export interface VendorBooking {
     startTime: string | null;
     endTime: string | null;
 
+    // numeric() → string (Drizzle / Postgres)
     basePrice: string;
     totalDays: number;
     totalAmount: string;
@@ -70,7 +87,7 @@ export interface VendorBooking {
 
     status: BookingStatus;
 
-    approvalExpiresAt: string | null;
+    approvalExpiresAt: string;
 
     notes: string | null;
     source: "WEB";
@@ -89,19 +106,27 @@ export interface CreateBookingResponse {
 }
 
 /* ----------------------------------
- Booking Decision to be made
+ Booking Decision Details
 ---------------------------------- */
 export interface BookingDecisionDetails {
     booking: {
         uuid: string;
-        status: string;
-        bookingType: "SINGLE_DAY" | "MULTI_DAY";
+        status: BookingStatus;
+        bookingType: BookingType;
+
         startDate: string;
         endDate: string;
         startTime?: string | null;
         endTime?: string | null;
+
         totalDays: number;
+
+        // 💰 PRICING (BACKEND SOURCE OF TRUTH)
+        totalAmount: string;
         finalAmount: string;
+        advanceAmount: string;
+        remainingAmount: string;
+
         approvalExpiresAt: string;
 
         product: {
@@ -158,6 +183,7 @@ export interface ActiveBookingTypes {
     hasActiveBooking: boolean;
     nextAvailableDate?: string;
 }
+
 /* ----------------------------------
  Blocked dates
 ---------------------------------- */
@@ -173,14 +199,15 @@ export interface BlockedDatesResponse {
     blocked: BlockedBooking[];
 }
 
+/* ----------------------------------
+ Razorpay client
+---------------------------------- */
 export interface RazorpaySuccessResponse {
     razorpay_order_id: string;
     razorpay_payment_id: string;
     razorpay_signature: string;
 }
-/* ----------------------------------
- Razorpay types
----------------------------------- */
+
 export interface RazorpayOptions {
     key: string;
     amount: number;
@@ -191,5 +218,40 @@ export interface RazorpayOptions {
     handler: (response: RazorpaySuccessResponse) => void;
     theme?: {
         color?: string;
+    };
+}
+
+/* ----------------------------------
+ Booking Details Response (Calendar / Sidebar)
+---------------------------------- */
+export interface BookingDetailsResponse {
+    booking: {
+        uuid: string;
+        bookingType: BookingType;
+        status: BookingStatus;
+        startDate: string;
+        endDate: string;
+        totalDays: number;
+        notes: string | null;
+    };
+    product: {
+        title: string;
+    };
+    requester: {
+        businessName: string;
+        email: string;
+        phone: string;
+        address: string;
+    };
+    provider: {
+        businessName: string;
+        email: string;
+        phone: string;
+        address: string;
+    };
+    payment: {
+        totalAmount: number;
+        advanceAmount: number;
+        remainingAmount: number;
     };
 }

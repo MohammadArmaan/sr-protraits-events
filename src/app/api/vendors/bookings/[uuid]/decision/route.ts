@@ -66,6 +66,14 @@ export async function POST(
                 { status: 410 }
             );
         }
+        /* ---------- CHECK VALID ADVANCE AMMOUNT ---------- */
+
+        if (Number(booking.advanceAmount) <= 0) {
+            return NextResponse.json(
+                { error: "Invalid advance amount" },
+                { status: 400 }
+            );
+        }
 
         /* ---------- FETCH REQUESTING VENDOR ---------- */
         const [requester] = await db
@@ -84,7 +92,11 @@ export async function POST(
 
         /* ---------- FETCH PRODUCT ---------- */
         const [product] = await db
-            .select({ title: vendorProductsTable.title })
+            .select({
+                title: vendorProductsTable.title,
+                advanceType: vendorProductsTable.advanceType,
+                advanceValue: vendorProductsTable.advanceValue,
+            })
             .from(vendorProductsTable)
             .where(eq(vendorProductsTable.id, booking.vendorProductId));
 
@@ -96,14 +108,39 @@ export async function POST(
 
         /* ---------- EMAIL ---------- */
         if (decision === "APPROVE") {
+            // ---------------- ADVANCE CALCULATION ----------------
+            let advanceAmount = Number(booking.finalAmount);
+
+            if (product.advanceType && product.advanceValue) {
+                if (product.advanceType === "PERCENTAGE") {
+                    advanceAmount = Math.round(
+                        (Number(booking.finalAmount) *
+                            Number(product.advanceValue)) /
+                            100
+                    );
+                }
+
+                if (product.advanceType === "FIXED") {
+                    advanceAmount = Number(product.advanceValue);
+                }
+
+                // Safety clamp
+                advanceAmount = Math.min(
+                    advanceAmount,
+                    Number(booking.finalAmount)
+                );
+            }
+
             await sendEmail({
                 to: requester.email,
-                subject: "Booking Approved – Complete Payment 💳",
+                subject: "Booking Approved – Pay Advance 💳",
                 html: bookingApprovedVendorTemplate(
                     requester.businessName,
                     product.title,
                     booking.uuid,
-                    Number(booking.finalAmount)
+                    advanceAmount, // ✅ advance
+                    Number(booking.finalAmount), // ✅ total
+                    booking.totalDays > 1 ? booking.totalDays : undefined // ✅ days only if multi-day
                 ),
             });
         }

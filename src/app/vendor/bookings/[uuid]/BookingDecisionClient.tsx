@@ -35,19 +35,28 @@ export function BookingDecisionClient({ uuid }: Props) {
 
     const { booking } = data;
 
-    const isExpired = isBefore(new Date(booking.approvalExpiresAt), new Date());
+    const isExpired = isBefore(
+        new Date(booking.approvalExpiresAt),
+        new Date()
+    );
 
-    const isActionable = booking.status === "REQUESTED" && !isExpired;
+    const isActionable =
+        booking.status === "PAYMENT_PENDING" && !isExpired;
 
-    const isFinalState =
-        booking.status === "APPROVED" || booking.status === "REJECTED";
+    /* ----------------------------------
+       Payment breakdown (UI only)
+    ---------------------------------- */
+
+    const totalAmount = Number(booking.finalAmount);
+const advanceAmount = Number(booking.advanceAmount);
+const remainingAmount = Number(booking.remainingAmount);
 
     const handleDecision = (decision: "APPROVE" | "REJECT") => {
         decisionMutation.mutate(decision, {
             onSuccess: () => {
                 toast.success(
                     decision === "APPROVE"
-                        ? "Booking approved"
+                        ? "Booking approved. Waiting for advance payment."
                         : "Booking rejected"
                 );
             },
@@ -60,19 +69,21 @@ export function BookingDecisionClient({ uuid }: Props) {
             <div className="max-w-2xl mx-auto space-y-6">
                 <Card className="rounded-2xl">
                     <CardContent className="p-6 space-y-4">
-                        <h1 className="text-2xl font-bold">Booking Request</h1>
+                        <h1 className="text-2xl font-bold">
+                            Booking Request
+                        </h1>
 
-                        {/* Status Badge */}
+                        {/* Status */}
                         <Badge
                             variant={
                                 booking.status === "REJECTED"
                                     ? "destructive"
-                                    : booking.status === "APPROVED"
+                                    : booking.status === "PAYMENT_PENDING"
                                     ? "secondary"
                                     : "outline"
                             }
                             className={
-                                booking.status === "APPROVED"
+                                booking.status === "PAYMENT_PENDING"
                                     ? "bg-green-100 text-green-700 border-green-200"
                                     : undefined
                             }
@@ -86,11 +97,14 @@ export function BookingDecisionClient({ uuid }: Props) {
                             </p>
                         )}
 
+                        {/* Details */}
                         <div className="space-y-2 text-sm">
                             <p className="flex items-center gap-2">
                                 <User className="h-4 w-4" />
                                 Requested by{" "}
-                                <strong>{booking.bookedBy.businessName}</strong>
+                                <strong>
+                                    {booking.bookedBy.businessName}
+                                </strong>
                             </p>
 
                             <p className="flex items-center gap-2">
@@ -109,19 +123,31 @@ export function BookingDecisionClient({ uuid }: Props) {
                             {booking.startTime && booking.endTime && (
                                 <p className="flex items-center gap-2">
                                     <Clock className="h-4 w-4" />
-                                    {booking.startTime} – {booking.endTime}
+                                    {booking.startTime} –{" "}
+                                    {booking.endTime}
                                 </p>
                             )}
 
+                            {/* Payment */}
                             <p className="flex items-center gap-2">
                                 <CreditCard className="h-4 w-4" />
-                                Amount payable:
-                                <strong>
-                                    ₹
-                                    {Number(
-                                        booking.finalAmount
-                                    ).toLocaleString()}
+                                Final Amount:
+                                <strong className="text-green-500">
+                                    ₹{totalAmount.toLocaleString()}
                                 </strong>
+                            </p>
+                            <p className="flex items-center gap-2">
+                                <CreditCard className="h-4 w-4" />
+                                Advance payable:
+                                <strong  className="text-green-500">
+                                    ₹{advanceAmount.toLocaleString()}
+                                </strong>
+                            </p>
+
+                            <p className="text-xs text-muted-foreground pl-6">
+                                Remaining 
+                                <span className="text-green-500 text-bold">{" "}₹{remainingAmount.toLocaleString()}</span> to be
+                                collected after event completion
                             </p>
                         </div>
                     </CardContent>
@@ -129,7 +155,6 @@ export function BookingDecisionClient({ uuid }: Props) {
 
                 {/* Actions */}
                 <div className="flex gap-4">
-                    {/* Home always visible */}
                     <Button
                         variant="outline"
                         className="flex-1"
@@ -138,13 +163,14 @@ export function BookingDecisionClient({ uuid }: Props) {
                         Home
                     </Button>
 
-                    {/* Show only when actionable */}
-                    {isActionable && (
+                    {!isActionable && (
                         <>
                             <Button
                                 className="flex-1 bg-gradient-primary"
                                 disabled={decisionMutation.isPending}
-                                onClick={() => handleDecision("APPROVE")}
+                                onClick={() =>
+                                    handleDecision("APPROVE")
+                                }
                             >
                                 Approve
                             </Button>
@@ -153,7 +179,9 @@ export function BookingDecisionClient({ uuid }: Props) {
                                 variant="destructive"
                                 className="flex-1"
                                 disabled={decisionMutation.isPending}
-                                onClick={() => handleDecision("REJECT")}
+                                onClick={() =>
+                                    handleDecision("REJECT")
+                                }
                             >
                                 Reject
                             </Button>

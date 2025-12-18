@@ -1,0 +1,1 @@
+ALTER TABLE "vendor_calendar" DROP COLUMN "notes";

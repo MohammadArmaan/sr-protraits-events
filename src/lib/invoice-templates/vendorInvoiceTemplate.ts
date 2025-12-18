@@ -1,34 +1,37 @@
 interface InvoiceParty {
-  name: string;
-  email: string;
-  phone: string;
-  address: string;
-  profilePhoto?: string | null;
+    name: string;
+    email: string;
+    phone: string;
+    address: string;
+    profilePhoto?: string | null;
 }
 
 interface InvoiceData {
-  invoiceNumber: string;
-  bookingDate: string;
+    invoiceNumber: string;
+    bookingDate: string;
 
-  productTitle: string;
-  bookingType: string;
-  startDate: string;
-  endDate: string;
-  totalDays: number;
+    productTitle: string;
+    bookingType: string;
+    startDate: string;
+    endDate: string;
+    totalDays: number;
 
-  basePrice: number;
-  discountAmount: number;
-  finalAmount: number;
+    basePrice: number;
+    discountAmount: number;
+    finalAmount: number;
 
-  requester: InvoiceParty;
-  provider: InvoiceParty;
+    advanceAmount: number;
+    remainingAmount: number;
+
+    requester: InvoiceParty;
+    provider: InvoiceParty;
 }
 
 export function vendorInvoiceTemplate(data: InvoiceData) {
-  const gradientPrimary =
-    "linear-gradient(135deg, hsl(220, 80%, 55%), hsl(180, 70%, 50%))";
+    const gradientPrimary =
+        "linear-gradient(135deg, hsl(220, 80%, 55%), hsl(180, 70%, 50%))";
 
-  return `
+    return `
 <!DOCTYPE html>
 <html>
 <body style="margin:0;font-family:Arial,sans-serif;background:#f4f4f4;">
@@ -103,18 +106,6 @@ export function vendorInvoiceTemplate(data: InvoiceData) {
             <th align="left" style="padding:10px;">Dates</th>
             <th align="right" style="padding:10px;">Amount</th>
           </tr>
-
-          <tr>
-            <td style="padding:10px;">${data.productTitle}</td>
-            <td style="padding:10px;">
-              ${data.startDate} → ${data.endDate}<br/>
-              (${data.totalDays} day(s))
-            </td>
-            <td align="right" style="padding:10px;">
-              ₹${data.basePrice.toLocaleString()}
-            </td>
-          </tr>
-
           <tr>
             <td colspan="2" align="right" style="padding:10px;">
               Discount
@@ -124,14 +115,33 @@ export function vendorInvoiceTemplate(data: InvoiceData) {
             </td>
           </tr>
 
-          <tr style="font-weight:bold;">
+          <tr>
             <td colspan="2" align="right" style="padding:10px;">
-              Total Paid
+              Total Amount
             </td>
             <td align="right" style="padding:10px;">
               ₹${data.finalAmount.toLocaleString()}
             </td>
           </tr>
+
+          <tr style="color:green;font-weight:bold;">
+            <td colspan="2" align="right" style="padding:10px;">
+              Advance Paid
+            </td>
+            <td align="right" style="padding:10px;">
+              ₹${data.advanceAmount.toLocaleString()}
+            </td>
+          </tr>
+
+          <tr style="color:#b91c1c;font-weight:bold;">
+            <td colspan="2" align="right" style="padding:10px;">
+              Remaining (Pay After Event)
+            </td>
+            <td align="right" style="padding:10px;">
+              ₹${data.remainingAmount.toLocaleString()}
+            </td>
+          </tr>
+
         </table>
       </td>
     </tr>

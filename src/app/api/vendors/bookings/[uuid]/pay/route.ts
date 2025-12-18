@@ -6,6 +6,7 @@ import { db } from "@/config/db";
 import { vendorBookingsTable } from "@/config/vendorBookingsSchema";
 import { vendorPaymentsTable } from "@/config/vendorPaymentsSchema";
 import { eq } from "drizzle-orm";
+import { vendorProductsTable } from "@/config/vendorProductsSchema";
 
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID!,
@@ -18,17 +19,13 @@ export async function POST(
 ) {
     try {
         const { uuid } = await params;
-        /* -------- AUTH (REQUESTING VENDOR) -------- */
+
+        /* -------- AUTH -------- */
         const token = req.cookies.get("vendor_token")?.value;
         if (!token)
-            return NextResponse.json(
-                { error: "Unauthorized" },
-                { status: 401 }
-            );
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-            vendorId: number;
-        };
+        jwt.verify(token, process.env.JWT_SECRET!);
 
         /* -------- FETCH BOOKING -------- */
         const [booking] = await db
@@ -48,39 +45,65 @@ export async function POST(
                 { status: 400 }
             );
 
+        /* -------- FETCH PRODUCT (for advance config) -------- */
+        const [product] = await db
+            .select({
+                advanceType: vendorProductsTable.advanceType,
+                advanceValue: vendorProductsTable.advanceValue,
+            })
+            .from(vendorProductsTable)
+            .where(eq(vendorProductsTable.id, booking.vendorProductId));
+
+        if (!product)
+            return NextResponse.json(
+                { error: "Product not found" },
+                { status: 404 }
+            );
+
+        /* -------- CALCULATE ADVANCE -------- */
+        let advanceAmount = Number(booking.finalAmount);
+
+        if (product.advanceType && product.advanceValue) {
+            if (product.advanceType === "PERCENTAGE") {
+                advanceAmount = Math.round(
+                    (Number(booking.finalAmount) * Number(product.advanceValue)) / 100
+                );
+            }
+
+            if (product.advanceType === "FIXED") {
+                advanceAmount = Number(product.advanceValue);
+            }
+
+            // Safety clamp
+            advanceAmount = Math.min(
+                advanceAmount,
+                Number(booking.finalAmount)
+            );
+        }
+
+        const advanceInPaise = Math.round(advanceAmount * 100);
+
         /* -------- CREATE RAZORPAY ORDER -------- */
         const order = await razorpay.orders.create({
-            amount: Math.round(Number(booking.finalAmount) * 100), // paise
+            amount: advanceInPaise,
             currency: "INR",
             receipt: booking.uuid,
         });
 
         /* -------- STORE PAYMENT -------- */
-        const razorpayAmount =
-            typeof order.amount === "string"
-                ? parseInt(order.amount, 10)
-                : order.amount;
-
-        if (!Number.isInteger(razorpayAmount)) {
-            return NextResponse.json(
-                { error: "Invalid payment amount" },
-                { status: 500 }
-            );
-        }
-
         const [payment] = await db
             .insert(vendorPaymentsTable)
             .values({
-                vendorId: booking.vendorId, // number
-                vendorProductId: booking.vendorProductId, //  number
-                razorpayOrderId: order.id, // string
-                amount: razorpayAmount, // number (paise)
+                vendorId: booking.vendorId,
+                vendorProductId: booking.vendorProductId,
+                razorpayOrderId: order.id,
+                amount: advanceInPaise, // ✅ ADVANCE ONLY
                 currency: "INR",
                 status: "CREATED",
             })
             .returning();
 
-        /* -------- LINK PAYMENT TO BOOKING -------- */
+        /* -------- LINK PAYMENT -------- */
         await db
             .update(vendorBookingsTable)
             .set({ paymentId: payment.id })
@@ -89,7 +112,7 @@ export async function POST(
         return NextResponse.json({
             key: process.env.RAZORPAY_KEY_ID,
             orderId: order.id,
-            amount: order.amount,
+            amount: advanceInPaise,
             currency: "INR",
         });
     } catch (err) {

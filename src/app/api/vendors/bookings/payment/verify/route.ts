@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        /* ---------- CONFIRM BOOKING ---------- */
+        /* ---------- CONFIRM BOOKING (ADVANCE PAID) ---------- */
         await db
             .update(vendorBookingsTable)
             .set({
@@ -74,6 +74,11 @@ export async function POST(req: NextRequest) {
                 updatedAt: new Date(),
             })
             .where(eq(vendorBookingsTable.id, booking.id));
+
+        /* ---------- PAYMENT MATH ---------- */
+        const advanceAmount = payment.amount / 100; // paise → INR
+        const finalAmount = Number(booking.finalAmount);
+        const remainingAmount = Math.max(finalAmount - advanceAmount, 0);
 
         /* ---------- FETCH REQUESTER & PROVIDER ---------- */
         const [[requester], [provider]] = await Promise.all([
@@ -135,7 +140,10 @@ export async function POST(req: NextRequest) {
 
             basePrice: Number(booking.totalAmount),
             discountAmount: Number(booking.discountAmount),
-            finalAmount: Number(booking.finalAmount),
+            finalAmount,
+
+            advanceAmount,
+            remainingAmount,
 
             requester: requesterInvoiceParty,
             provider: providerInvoiceParty,

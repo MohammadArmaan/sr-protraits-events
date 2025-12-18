@@ -8,7 +8,6 @@ import { format } from "date-fns";
 
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
-
     const vendorProductId = Number(searchParams.get("vendorProductId"));
 
     if (!vendorProductId) {
@@ -20,9 +19,7 @@ export async function GET(req: NextRequest) {
 
     const today = format(new Date(), "yyyy-MM-dd");
 
-    /* -----------------------------
-       Resolve vendorId
-    ----------------------------- */
+    /* ---------- Resolve vendorId ---------- */
     const product = await db
         .select({ vendorId: vendorProductsTable.vendorId })
         .from(vendorProductsTable)
@@ -38,9 +35,7 @@ export async function GET(req: NextRequest) {
 
     const vendorId = product[0].vendorId;
 
-    /* -----------------------------
-       1️⃣ Active bookings (product-specific)
-    ----------------------------- */
+    /* ---------- Active bookings ---------- */
     const bookings = await db
         .select({
             startDate: vendorBookingsTable.startDate,
@@ -59,9 +54,7 @@ export async function GET(req: NextRequest) {
             )
         );
 
-    /* -----------------------------
-       2️⃣ Vendor calendar blocks
-    ----------------------------- */
+    /* ---------- Vendor calendar blocks ---------- */
     const blocks = await db
         .select({
             startDate: vendorCalendarTable.startDate,
@@ -70,9 +63,7 @@ export async function GET(req: NextRequest) {
         .from(vendorCalendarTable)
         .where(eq(vendorCalendarTable.vendorId, vendorId));
 
-    /* -----------------------------
-       Merge unavailable ranges
-    ----------------------------- */
+    /* ---------- Unified unavailable ranges ---------- */
     const unavailableRanges = [
         ...bookings.map((b) => ({
             startDate: b.startDate,
