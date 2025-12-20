@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import { sendEmail } from "@/lib/sendEmail";
 import { vendorProductCreatedTemplate } from "@/lib/email-templates/vendorProductCreatedTemplate";
+import { vendorBankDetailsTable } from "@/config/vendorBankDetailsSchema";
 
 interface AdminTokenPayload {
     adminId: number;
@@ -18,7 +19,10 @@ export async function POST(req: NextRequest) {
         /* ---------------- AUTH ---------------- */
         const token = req.cookies.get("admin_token")?.value;
         if (!token) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            return NextResponse.json(
+                { error: "Unauthorized" },
+                { status: 401 }
+            );
         }
 
         const decoded = jwt.verify(
@@ -56,8 +60,23 @@ export async function POST(req: NextRequest) {
         ) {
             return NextResponse.json(
                 {
-                    error:
-                        "vendorId, title, basePriceSingleDay and basePriceMultiDay are required",
+                    error: "vendorId, title, basePriceSingleDay and basePriceMultiDay are required",
+                },
+                { status: 400 }
+            );
+        }
+
+         /* ---------- CHECK PAYOUT READY ---------- */
+        const bankDetails = await db
+            .select({ id: vendorBankDetailsTable.id })
+            .from(vendorBankDetailsTable)
+            .where(eq(vendorBankDetailsTable.vendorId, vendorId))
+            .limit(1);
+
+        if (!bankDetails.length) {
+            return NextResponse.json(
+                {
+                    error: "Vendor must complete payout details before product creation.",
                 },
                 { status: 400 }
             );
@@ -115,10 +134,7 @@ export async function POST(req: NextRequest) {
         }
 
         if (advanceType === "FIXED") {
-            const maxBase = Math.max(
-                basePriceSingleDay,
-                basePriceMultiDay
-            );
+            const maxBase = Math.max(basePriceSingleDay, basePriceMultiDay);
 
             if (
                 typeof advanceValue !== "number" ||
@@ -127,8 +143,7 @@ export async function POST(req: NextRequest) {
             ) {
                 return NextResponse.json(
                     {
-                        error:
-                            "Fixed advance must be greater than 0 and less than product price",
+                        error: "Fixed advance must be greater than 0 and less than product price",
                     },
                     { status: 400 }
                 );

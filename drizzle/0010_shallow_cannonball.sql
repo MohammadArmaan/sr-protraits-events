@@ -1,0 +1,1 @@
+ALTER TABLE "vendor_bank_details" ADD COLUMN "pendingChanges" jsonb;

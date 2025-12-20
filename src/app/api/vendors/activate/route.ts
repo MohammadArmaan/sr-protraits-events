@@ -1,90 +1,90 @@
+/**
+ * @fileoverview Vendor activation route with automatic login + redirect
+ */
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/config/db";
-import { vendorBookingsTable } from "@/config/vendorBookingsSchema";
-import { vendorCalendarTable } from "@/config/vendorCalendarSchema";
-import { vendorProductsTable } from "@/config/vendorProductsSchema";
-import { and, eq, gte, inArray } from "drizzle-orm";
-import { format } from "date-fns";
+import { vendorsTable } from "@/config/schema";
+import { eq } from "drizzle-orm";
+import jwt from "jsonwebtoken";
 
 export async function GET(req: NextRequest) {
-    const { searchParams } = new URL(req.url);
+    try {
+        const token = req.nextUrl.searchParams.get("token");
 
-    const vendorProductId = Number(searchParams.get("vendorProductId"));
+        if (!token) {
+            return NextResponse.json(
+                { error: "Token missing" },
+                { status: 400 }
+            );
+        }
 
-    if (!vendorProductId) {
+        let decoded: { vendorId: number };
+
+        try {
+            decoded = jwt.verify(
+                token,
+                process.env.JWT_SECRET!
+            ) as { vendorId: number };
+        } catch {
+            return NextResponse.json(
+                { error: "Invalid or expired token" },
+                { status: 401 }
+            );
+        }
+
+        const vendorId = decoded.vendorId;
+
+        const [vendor] = await db
+            .select()
+            .from(vendorsTable)
+            .where(eq(vendorsTable.id, vendorId));
+
+        if (!vendor) {
+            return NextResponse.json(
+                { error: "Vendor not found" },
+                { status: 404 }
+            );
+        }
+
+        /* ---------------- ACTIVATE VENDOR ---------------- */
+        await db
+            .update(vendorsTable)
+            .set({
+                status: "ACTIVE",
+                emailVerified: true,
+                currentStep: 5,
+                activationToken: null,
+                activationTokenExpires: null,
+            })
+            .where(eq(vendorsTable.id, vendorId));
+
+        /* ---------------- ISSUE LOGIN TOKEN ---------------- */
+        const loginToken = jwt.sign(
+            { vendorId },
+            process.env.JWT_SECRET!,
+            { expiresIn: "7d" }
+        );
+
+        /* ---------------- REDIRECT TO PROFILE ---------------- */
+        const response = NextResponse.redirect(
+            `${process.env.DOMAIN}/vendor/profile`
+        );
+
+        // 🔑 CRITICAL FIXES HERE
+        response.cookies.set("vendor_token", loginToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax", // ✅ REQUIRED for email activation
+            path: "/",
+            maxAge: 60 * 60 * 24 * 7,
+        });
+
+        return response;
+    } catch (error) {
+        console.error("Activation Error:", error);
         return NextResponse.json(
-            { error: "vendorProductId is required" },
-            { status: 400 }
+            { error: "Server error" },
+            { status: 500 }
         );
     }
-
-    const today = format(new Date(), "yyyy-MM-dd");
-
-    /* -----------------------------
-       Resolve vendorId
-    ----------------------------- */
-    const product = await db
-        .select({ vendorId: vendorProductsTable.vendorId })
-        .from(vendorProductsTable)
-        .where(eq(vendorProductsTable.id, vendorProductId))
-        .limit(1);
-
-    if (!product.length) {
-        return NextResponse.json(
-            { error: "Vendor product not found" },
-            { status: 404 }
-        );
-    }
-
-    const vendorId = product[0].vendorId;
-
-    /* -----------------------------
-       1️⃣ Active bookings (product-specific)
-    ----------------------------- */
-    const bookings = await db
-        .select({
-            startDate: vendorBookingsTable.startDate,
-            endDate: vendorBookingsTable.endDate,
-        })
-        .from(vendorBookingsTable)
-        .where(
-            and(
-                eq(vendorBookingsTable.vendorProductId, vendorProductId),
-                inArray(vendorBookingsTable.status, [
-                    "REQUESTED",
-                    "PAYMENT_PENDING",
-                    "CONFIRMED",
-                ]),
-                gte(vendorBookingsTable.endDate, today)
-            )
-        );
-
-    /* -----------------------------
-       2️⃣ Vendor calendar blocks
-    ----------------------------- */
-    const blocks = await db
-        .select({
-            startDate: vendorCalendarTable.startDate,
-            endDate: vendorCalendarTable.endDate,
-        })
-        .from(vendorCalendarTable)
-        .where(eq(vendorCalendarTable.vendorId, vendorId));
-
-    /* -----------------------------
-       Merge unavailable ranges
-    ----------------------------- */
-    const unavailableRanges = [
-        ...bookings.map((b) => ({
-            startDate: b.startDate,
-            endDate: b.endDate,
-            source: "BOOKING" as const,
-        })),
-        ...blocks.map((b) => ({
-            startDate: b.startDate,
-            endDate: b.endDate,
-            source: "VENDOR_BLOCK" as const,
-        })),
-    ];
-
-    return NextResponse.json({ unavailableRanges });
 }

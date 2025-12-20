@@ -1,9 +1,6 @@
-export function activationEmailTemplate(
-    name: string,
-    activationUrl: string
-) {
+export function vendorBankDetailsRejectedEmailTemplate(name: string) {
     const gradientPrimary =
-        "linear-gradient(135deg, hsl(220, 80%, 55%), hsl(180, 70%, 50%))";
+        "linear-gradient(135deg, hsl(0, 80%, 55%), hsl(10, 70%, 50%))";
 
     return `
 <!DOCTYPE html>
@@ -29,28 +26,25 @@ export function activationEmailTemplate(
         <td style="padding:35px 40px;text-align:center;">
 
           <h2 style="margin-bottom:10px;font-size:24px;color:hsl(222,47%,11%);">
-            Welcome aboard, ${name}! 🎉
+            Hi, ${name}
           </h2>
 
-          <p style="font-size:16px;color:#444;margin-bottom:22px;">
-            Your vendor application has been <strong>approved</strong> by our team.
-            You can now activate your account and access your vendor dashboard.
+          <p style="font-size:16px;color:#444;margin-bottom:25px;">
+            Your recent update to <strong>bank / payout details</strong> has been
+            <strong>rejected</strong> by our admin team.
           </p>
 
-          <!-- IMPORTANT NOTE -->
-          <p style="font-size:15px;color:#555;margin-bottom:22px;">
-            <strong>Important:</strong> To ensure smooth and timely payouts, we require
-            verified bank details before any services can go live on the platform.
+          <p style="font-size:15px;color:#666;margin-bottom:25px;">
+            This may be due to incorrect information, formatting issues,
+            or details that require correction.
           </p>
 
-          <p style="font-size:15px;color:#555;margin-bottom:28px;">
-            Once your account is activated, please complete your payout information
-            from your profile. Our team will only create vendor service listings
-            after payout details are submitted and verified.
+          <p style="font-size:15px;color:#666;margin-bottom:25px;">
+            Until this is resolved, payouts and advance payments will remain
+            <strong>temporarily paused</strong>.
           </p>
 
-          <!-- ACTIVATE BUTTON -->
-          <a href="${process.env.DOMAIN}${activationUrl}"
+          <a href="${process.env.DOMAIN}/vendor/profile"
              style="
                 display:inline-block;
                 padding:16px 36px;
@@ -61,13 +55,13 @@ export function activationEmailTemplate(
                 border-radius:9999px;
                 background:${gradientPrimary};
                 box-shadow:0 8px 32px -8px rgba(0,0,0,0.25);
-                margin-top:10px;
+                margin-top:20px;
              ">
-            Activate My Account
+            Review & Resubmit Bank Details
           </a>
 
           <p style="margin-top:28px;color:#666;font-size:14px;">
-            If you did not request this approval, you can safely ignore this email.
+            If you believe this was a mistake, feel free to reach out to our support team.
           </p>
 
         </td>
@@ -83,6 +77,5 @@ export function activationEmailTemplate(
     </table>
 
   </body>
-</html>
-`;
+</html>`;
 }

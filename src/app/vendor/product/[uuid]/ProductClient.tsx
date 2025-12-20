@@ -11,6 +11,7 @@ import { useVendorProduct } from "@/hooks/queries/useVendorProduct";
 import { VendorBookingForm } from "@/components/vendor/booking/VendorBookingForm";
 import { ProductSkeleton } from "@/components/skeleton/VendorProductSkeleton";
 import { useVendor } from "@/hooks/queries/useVendor";
+import VendorRelatedProducts from "@/components/vendor/products/VendorRelatedProducts";
 
 interface Props {
     uuid: string;
@@ -167,6 +168,7 @@ export function ProductClient({ uuid }: Props) {
                     />
                 </div>
             </div>
+            <VendorRelatedProducts productUuid={uuid} />
         </main>
     );
 }

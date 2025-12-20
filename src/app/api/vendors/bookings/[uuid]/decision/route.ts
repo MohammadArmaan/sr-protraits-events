@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm";
 import { sendEmail } from "@/lib/sendEmail";
 import { bookingApprovedVendorTemplate } from "@/lib/email-templates/bookingApprovedVendorTemplate";
 import { bookingRejectedVendorTemplate } from "@/lib/email-templates/bookingRejectedVendorTemplate";
+import { vendorBankDetailsTable } from "@/config/vendorBankDetailsSchema";
 
 export async function POST(
     req: NextRequest,
@@ -28,6 +29,22 @@ export async function POST(
         const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
             vendorId: number;
         };
+
+        /* ---------- CHECK PAYOUT READY ---------- */
+        const bankDetails = await db
+            .select({ id: vendorBankDetailsTable.id })
+            .from(vendorBankDetailsTable)
+            .where(eq(vendorBankDetailsTable.vendorId, decoded.vendorId))
+            .limit(1);
+
+        if (!bankDetails.length) {
+            return NextResponse.json(
+                {
+                    error: "Complete payout details before approving bookings.",
+                },
+                { status: 400 }
+            );
+        }
 
         const { decision }: { decision: "APPROVE" | "REJECT" } =
             await req.json();

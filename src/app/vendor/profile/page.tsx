@@ -6,13 +6,12 @@ import { Button } from "@/components/ui/button";
 import { VendorProfilePhotoUpload } from "@/components/vendor/profile/VendorProfilePhotoUpload";
 import { VendorDetailsForm } from "@/components/vendor/profile/VendorDetailsForm";
 import { VendorBusinessPhotos } from "@/components/vendor/profile/VendorBusinessPhotos";
-import { submitProfileEdit } from "@/lib/vendor/editProfile";
 import { toast } from "sonner";
 import { useVendor } from "@/hooks/queries/useVendor";
 import VendorLogoutButton from "@/components/vendor/VendorLogoutButton";
 import { useEditVendorProfile } from "@/hooks/queries/useEditVendorProfile";
-import Loader from "@/components/Loader";
 import { ProfilePageSkeleton } from "@/components/skeleton/ProfilePageSkeleton";
+import VendorBankDetails from "@/components/vendor/profile/VendorBankDetails";
 
 interface VendorProfileState {
     fullName: string;
@@ -214,6 +213,13 @@ export default function VendorProfilePage() {
                             </Button>
                         </div>
                     )}
+
+                </CardContent>
+            </Card>
+            {/* BANK DETAILS */}
+            <VendorBankDetails />
+            <Card className="rounded-2xl mt-10">
+                <CardContent>
 
                     {/* LOGOUT BUTTON */}
                     <div className="pt-6 border-t">

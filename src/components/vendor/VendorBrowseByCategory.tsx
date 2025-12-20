@@ -2,29 +2,14 @@
 
 import Link from "next/link";
 import { useVendorCategories } from "@/hooks/queries/useVendorCategories";
+import VendorHomepageCategoriesSkeleton from "../skeleton/VendorHomePageCategoriesSkeleton";
 
 export function VendorBrowseByCategory() {
     const { data: categories = [], isLoading } = useVendorCategories();
 
     if (isLoading) {
         return (
-            <section>
-                <div className="mb-8">
-                    <h2 className="text-3xl font-bold">Browse by Category</h2>
-                    <p className="text-muted-foreground">
-                        Find the perfect vendor for your needs
-                    </p>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {Array.from({ length: 8 }).map((_, i) => (
-                        <div
-                            key={i}
-                            className="h-24 rounded-2xl bg-muted animate-pulse"
-                        />
-                    ))}
-                </div>
-            </section>
+            <VendorHomepageCategoriesSkeleton />
         );
     }
 

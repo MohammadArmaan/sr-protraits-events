@@ -6,11 +6,11 @@ export type BookingType = "SINGLE_DAY" | "MULTI_DAY";
 export type BookingStatus =
     | "REQUESTED"
     | "PAYMENT_PENDING"
-    | "CONFIRMED"
     | "APPROVED"
     | "REJECTED"
     | "EXPIRED"
     | "CANCELLED"
+    | "CONFIRMED"
     | "COMPLETED";
 
 export type PaymentStatus = "CREATED" | "PAID" | "FAILED";

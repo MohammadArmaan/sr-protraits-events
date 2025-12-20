@@ -24,3 +24,31 @@ export interface VendorProduct {
     featuredImageIndex: number;
 }
 
+/* ------------------ Related Products Types ------------------ */
+
+
+export interface RelatedVendorProduct {
+    id: number;
+    uuid: string;
+    title: string;
+
+    basePriceSingleDay: string;
+    basePriceMultiDay: string;
+
+    advanceType: AdvanceType;
+    advanceValue: string | null;
+
+    rating: string;
+    ratingCount: number;
+
+    businessName: string;
+    occupation: string;
+
+    images: string[];
+    featuredImageIndex: number;
+}
+
+export interface RelatedVendorProductsResponse {
+    products: RelatedVendorProduct[];
+}
+

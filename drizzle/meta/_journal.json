@@ -64,6 +64,20 @@
       "when": 1766058267850,
       "tag": "0008_parched_the_initiative",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1766209969603,
+      "tag": "0009_silent_ultimates",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1766214026147,
+      "tag": "0010_shallow_cannonball",
+      "breakpoints": true
     }
   ]
 }
