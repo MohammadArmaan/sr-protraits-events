@@ -46,6 +46,7 @@ import CalendarSkeleton from "@/components/skeleton/CalendarSkeleton";
 import { VendorCalendarBlock } from "@/types/vendor-calendar";
 import { useSaveBookingNotes } from "@/hooks/queries/useSaveBookingNotes";
 import { useBookingDetails } from "@/hooks/queries/useBookingDetails";
+import { useRouter } from "next/navigation";
 
 interface CalendarEvent {
     uuid: string;
@@ -58,7 +59,12 @@ interface CalendarEvent {
     notes?: string | null;
 }
 
+const isEventOver = (endDate: string) => {
+    return new Date(endDate) < new Date();
+};
+
 export default function CalendarClient() {
+    const router = useRouter();
     const { data, isLoading } = useVendorCalendar();
     const blockDates = useBlockCalendarDates();
     const deleteBlock = useDeleteCalendarBlock();
@@ -502,6 +508,29 @@ const getBlockForDate = (date: Date): VendorCalendarBlock | null => {
 {eventsForSelectedDate.map((event) => {
     const details = bookingDetails;
 
+    const remainingAmount = Number(details?.payment.remainingAmount ?? 0);
+
+    const isBooked = 
+        !!details &&
+        event.type === "booked_by_me" &&
+        remainingAmount !== 0 &&
+        isEventOver(details.booking.endDate) &&
+        details.booking.status === "CONFIRMED";
+
+    const canSettle =
+        !!details &&
+        event.type === "booked_by_me" &&
+        remainingAmount > 0 &&
+        isEventOver(details.booking.endDate) &&
+        details.booking.status !== "COMPLETED";
+
+    const isSettled =
+        !!details &&
+        event.type === "booked_by_me" &&
+        remainingAmount === 0 &&
+        isEventOver(details.booking.endDate) &&
+        details.booking.status === "COMPLETED";
+
     return (
         <Card
             key={event.uuid}
@@ -567,14 +596,20 @@ const getBlockForDate = (date: Date): VendorCalendarBlock | null => {
                                 ₹{details.payment.advanceAmount}
                             </span>
                         </div>
-                        {details.payment.remainingAmount > 0 && (
-                            <div className="flex justify-between font-semibold">
-                                <span>Remaining</span>
+
+                        <div className="flex justify-between font-semibold">
+                            <span>Remaining</span>
+                            {remainingAmount > 0 ? (
                                 <span className="text-destructive">
-                                    ₹{details.payment.remainingAmount}
+                                    ₹{remainingAmount}
                                 </span>
-                            </div>
-                        )}
+                            ) : (
+                                <span className="text-green-600">
+                                    No Remaining Due
+                                </span>
+                            )}
+                        </div>
+
                     </div>
                 )}
 
@@ -599,6 +634,49 @@ const getBlockForDate = (date: Date): VendorCalendarBlock | null => {
                     <Plus className="h-4 w-4 mr-1" />
                     Add Note
                 </Button>
+
+                {/* ✅ SETTLEMENT CTA */}
+                {isBooked && (
+     <Button
+        className="w-full bg-gradient-primary"
+        onClick={(e) => {
+            e.stopPropagation(); // prevent card click
+            router.push(
+                `/vendor/bookings/confirmed/${event.uuid}`
+            );
+        }}
+    >
+        View Booking Summary
+    </Button>
+)}
+                {canSettle && (
+    <Button
+        className="w-full bg-gradient-primary"
+        onClick={(e) => {
+            e.stopPropagation(); // prevent card click
+            router.push(
+                `/vendor/bookings/settle/${event.uuid}`
+            );
+        }}
+    >
+        Pay Remaining ₹{details.payment.remainingAmount}
+    </Button>
+)}
+
+                {isSettled && (
+    <Button
+        className="w-full bg-gradient-primary"
+        onClick={(e) => {
+            e.stopPropagation(); // prevent card click
+            router.push(
+                `/vendor/bookings/completed/${event.uuid}`
+            );
+        }}
+    >
+        View Booking Summary
+    </Button>
+)}
+
             </CardContent>
         </Card>
     );

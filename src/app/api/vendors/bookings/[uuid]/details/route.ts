@@ -80,7 +80,8 @@ export async function GET(
 
         const advanceAmount = payment ? Number(payment.amount) / 100 : 0;
         const totalAmount = Number(booking.finalAmount);
-        const remainingAmount = Math.max(totalAmount - advanceAmount, 0);
+        // const remainingAmount = Math.max(totalAmount - advanceAmount, 0);
+        const remainingAmount = Number(booking.remainingAmount)
 
         return NextResponse.json({
             booking: {

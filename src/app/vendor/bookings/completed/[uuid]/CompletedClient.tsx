@@ -16,14 +16,14 @@ import { Button } from "@/components/ui/button";
 
 import { useBookingDecisionDetails } from "@/hooks/queries/useBookingDecisionDetails";
 import { BookingConfirmedSkeleton } from "@/components/skeleton/BookingConfirmedSkeleton";
-import { useDownloadBookingInvoice } from "@/hooks/queries/useDownloadBookingInvoice";
 import { toast } from "sonner";
+import { useDownloadBookingInvoice } from "@/hooks/queries/useDownloadBookingInvoice";
 
 interface Props {
     uuid: string;
 }
 
-export function BookingConfirmedClient({ uuid }: Props) {
+export function CompletedClient({ uuid }: Props) {
     const router = useRouter();
     const { data, isLoading, error } = useBookingDecisionDetails(uuid);
     const downloadInvoice = useDownloadBookingInvoice();
@@ -40,46 +40,42 @@ export function BookingConfirmedClient({ uuid }: Props) {
 
     const { booking } = data;
 
-    // HARD SAFETY CHECK
-    if (booking.status !== "CONFIRMED") {
+    /* HARD SAFETY */
+    if (booking.status !== "COMPLETED") {
         return (
             <div className="pt-28 text-center text-muted-foreground">
-                This booking is not confirmed yet.
+                Settlement not completed yet.
             </div>
         );
     }
 
-    /* ----------------------------------
-       Payment breakdown (UI only)
-    ---------------------------------- */
     const totalAmount = Number(booking.finalAmount);
     const advanceAmount = Number(booking.advanceAmount);
-    const remainingAmount = Number(booking.remainingAmount);
+    const remainingAmount = totalAmount - advanceAmount;
 
     return (
         <main className="pt-28 px-4 md:px-8 pb-16">
             <div className="max-w-2xl mx-auto">
                 {/* SUCCESS HEADER */}
-                <div className="text-center mb-8">
-                    <div className="w-24 h-24 rounded-full bg-success/20 flex items-center justify-center mx-auto mb-6">
-                        <CheckCircle2 className="h-16 w-16 text-success" />
+                <div className="text-center mb-10">
+                    <div className="w-24 h-24 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
+                        <CheckCircle2 className="h-16 w-16 text-green-600" />
                     </div>
 
                     <h1 className="text-4xl font-bold mb-2">
-                        Booking Confirmed!
+                        Payment Complete 🎉
                     </h1>
 
                     <p className="text-muted-foreground text-lg">
-                        Advance payment successful. Your vendor has been
-                        notified.
+                        Your booking has been successfully settled.
                     </p>
                 </div>
 
-                {/* BOOKING SUMMARY */}
+                {/* SUMMARY */}
                 <Card className="rounded-2xl shadow-lg mb-6">
                     <CardContent className="p-8 space-y-6">
                         <h2 className="text-2xl font-semibold">
-                            Booking Summary
+                            Settlement Summary
                         </h2>
 
                         <div className="space-y-3 text-sm">
@@ -126,23 +122,24 @@ export function BookingConfirmedClient({ uuid }: Props) {
                                         Time
                                     </span>
                                     <span className="font-medium">
-                                        {booking.startTime} – {booking.endTime}
+                                        {booking.startTime} –{" "}
+                                        {booking.endTime}
                                     </span>
                                 </div>
                             )}
 
-                            {/* PAYMENT BREAKDOWN */}
+                            {/* PAYMENT */}
                             <div className="pt-4 space-y-2">
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">
-                                        Total Contract Amount
+                                        Total Amount
                                     </span>
                                     <span className="font-medium">
                                         ₹{totalAmount.toLocaleString()}
                                     </span>
                                 </div>
 
-                                <div className="flex justify-between text-success font-semibold">
+                                <div className="flex justify-between text-green-600">
                                     <span className="flex items-center gap-2">
                                         <CreditCard className="h-4 w-4" />
                                         Advance Paid
@@ -152,31 +149,14 @@ export function BookingConfirmedClient({ uuid }: Props) {
                                     </span>
                                 </div>
 
-                                <div className="flex justify-between text-destructive">
-                                    <span>Remaining Amount</span>
+                                <div className="flex justify-between text-green-600 font-semibold">
+                                    <span>Remaining Paid</span>
                                     <span>
                                         ₹{remainingAmount.toLocaleString()}
                                     </span>
                                 </div>
-
-                                <p className="text-xs text-muted-foreground">
-                                    Remaining amount to be paid after event
-                                    completion.
-                                </p>
                             </div>
                         </div>
-                    </CardContent>
-                </Card>
-
-                {/* NEXT STEPS */}
-                <Card className="rounded-xl mb-6 bg-muted/40">
-                    <CardContent className="p-4">
-                        <h3 className="font-semibold mb-2">What’s Next?</h3>
-                        <ul className="text-sm text-muted-foreground space-y-2">
-                            <li>• Advance payment recorded</li>
-                            <li>• Vendor will contact you shortly</li>
-                            <li>• Final payment after event completion</li>
-                        </ul>
                     </CardContent>
                 </Card>
 
@@ -200,23 +180,19 @@ export function BookingConfirmedClient({ uuid }: Props) {
                     </Button>
 
                     <Button
-                        className="flex-1 rounded-pill bg-accent text-black hover:bg-accent/80"
+                        className="flex-1 rounded-pill bg-accent hover:bg-accent/80 text-black"
                         disabled={downloadInvoice.isPending}
                         onClick={() =>
                             downloadInvoice.mutate(uuid, {
                                 onError: () =>
-                                    toast.error("Failed to download invoice"),
+                                    toast.error(
+                                        "Failed to download invoice"
+                                    ),
                             })
                         }
                     >
-                        {downloadInvoice.isPending ? (
-                            "Preparing Invoice…"
-                        ) : (
-                            <>
-                                <FileDown className="h-4 w-4 mr-2" />
-                                Download Invoice
-                            </>
-                        )}
+                        <FileDown className="h-4 w-4 mr-2" />
+                        Download Invoice
                     </Button>
                 </div>
             </div>
