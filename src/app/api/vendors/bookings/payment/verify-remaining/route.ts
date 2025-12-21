@@ -13,6 +13,8 @@ import { sendEmail } from "@/lib/sendEmail";
 import { generateInvoicePdf } from "@/lib/invoice-templates/generateInvoicePdf";
 import { vendorInvoiceTemplate } from "@/lib/invoice-templates/vendorInvoiceTemplate";
 import { remainingPaymentCompletedTemplate } from "@/lib/email-templates/remainingPaymentCompletedTemplate";
+import { requesterPaymentCompletedTemplate } from "@/lib/email-templates/requesterPaymentCompletedTemplate";
+import { vendorProductsTable } from "@/config/vendorProductsSchema";
 
 export async function POST(req: NextRequest) {
     try {
@@ -197,6 +199,41 @@ export async function POST(req: NextRequest) {
                 provider.businessName,
                 updatedBooking.uuid
             ),
+            attachments: [
+                {
+                    filename: `Invoice-${updatedBooking.uuid}.pdf`,
+                    content: invoicePdf,
+                    contentType: "application/pdf",
+                },
+            ],
+        });
+
+        /* ----------------------------------
+           8️⃣ FETCH PRODUCT AND SEND EMAIL TO REQUESTER
+        ---------------------------------- */
+
+        const [product] = await db
+            .select({
+                uuid: vendorProductsTable.uuid,
+            })
+            .from(vendorProductsTable)
+            .where(eq(vendorProductsTable.id, booking.vendorProductId));
+
+        if (!product) {
+            return NextResponse.json(
+                { error: "Product not found" },
+                { status: 404 }
+            );
+        }
+
+        await sendEmail({
+            to: requester.email,
+            subject: "Your Booking Is Completed – Share Your Experience 🌟",
+            html: requesterPaymentCompletedTemplate({
+                requesterName: requester.businessName,
+                bookingRef: updatedBooking.uuid,
+                productUuid: product.uuid,
+            }),
             attachments: [
                 {
                     filename: `Invoice-${updatedBooking.uuid}.pdf`,

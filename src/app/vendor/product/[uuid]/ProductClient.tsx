@@ -12,6 +12,7 @@ import { VendorBookingForm } from "@/components/vendor/booking/VendorBookingForm
 import { ProductSkeleton } from "@/components/skeleton/VendorProductSkeleton";
 import { useVendor } from "@/hooks/queries/useVendor";
 import VendorRelatedProducts from "@/components/vendor/products/VendorRelatedProducts";
+import ProductReviews from "@/components/vendor/reviews/ProductReviews";
 
 interface Props {
     uuid: string;
@@ -169,6 +170,10 @@ export function ProductClient({ uuid }: Props) {
                 </div>
             </div>
             <VendorRelatedProducts productUuid={uuid} />
+            <ProductReviews
+                productUuid={uuid}
+                isOwnProduct={product.vendorId === me?.id}
+            />
         </main>
     );
 }

@@ -78,6 +78,13 @@
       "when": 1766214026147,
       "tag": "0010_shallow_cannonball",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1766302276383,
+      "tag": "0011_nice_eternals",
+      "breakpoints": true
     }
   ]
 }
