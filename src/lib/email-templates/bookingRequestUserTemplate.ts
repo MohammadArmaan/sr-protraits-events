@@ -3,8 +3,6 @@ export function bookingRequestUserTemplate(
   userName: string,
   productTitle: string
 ) {
-  const gradientPrimary =
-    "linear-gradient(135deg, hsl(220, 80%, 55%), hsl(180, 70%, 50%))";
 
   return `
 <!DOCTYPE html>

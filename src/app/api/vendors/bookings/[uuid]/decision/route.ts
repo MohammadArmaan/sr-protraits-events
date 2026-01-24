@@ -14,10 +14,10 @@ import { vendorBankDetailsTable } from "@/config/vendorBankDetailsSchema";
 
 export async function POST(
     req: NextRequest,
-    { params }: { params: { uuid: string } }
+    context: { params: Promise<{ uuid: string }> }
 ) {
     try {
-        const { uuid } = await params;
+        const { uuid } = await context.params;
         /* ---------- AUTH (SERVICE PROVIDER) ---------- */
         const token = req.cookies.get("vendor_token")?.value;
         if (!token)

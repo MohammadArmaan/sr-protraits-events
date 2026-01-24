@@ -6,10 +6,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function DELETE(
     req: NextRequest,
-    { params }: { params: { uuid: string } }
+    context: { params: Promise<{ uuid: string }> }
 ) {
     try {
-        const { uuid } = await params;
+        const { uuid } = await context.params;
         const vendor = await getVendorFromRequest(req);
 
         if (!vendor) {

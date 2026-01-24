@@ -57,12 +57,12 @@ export default function ProfileEditDetailsPage() {
     const edit = data?.edits.find((e) => e.editId === editId);
 
     const currentProfile = {
-        fullName: edit?.vendorName,
-        businessName: edit?.vendorBusinessName,
-        occupation: "", // fill when backend adds it
+        fullName: edit?.vendorName ?? "",
+        businessName: edit?.vendorBusinessName ?? "",
+        occupation: "", // backend not providing yet
         phone: "",
         address: "",
-        businessDescription: undefined,
+        businessDescription: "",
         profilePhoto: edit?.vendorCurrentPhoto ?? undefined,
         businessPhotos: edit?.vendorBusinessPhotos ?? [],
     };

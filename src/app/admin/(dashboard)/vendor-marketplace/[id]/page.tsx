@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import Zoom from "react-medium-image-zoom";
 import { useAdminVendorProduct } from "@/hooks/queries/admin/vendor-marketplace/useAdminVendorProduct";
+import { VendorMarketplaceDetailsSkeleton } from "@/components/skeleton/VendorMarketplaceDetailsSkeleton";
 
 export default function VendorMarketplaceDetailsPage() {
     const { id } = useParams<{ id: string }>();
@@ -18,12 +19,8 @@ export default function VendorMarketplaceDetailsPage() {
     const { data, isLoading } = useAdminVendorProduct(productId);
 
     if (isLoading) {
-        return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <p className="text-muted-foreground">Loading listing...</p>
-            </div>
-        );
-    }
+    return <VendorMarketplaceDetailsSkeleton />;
+}
 
     if (!data) {
         return (

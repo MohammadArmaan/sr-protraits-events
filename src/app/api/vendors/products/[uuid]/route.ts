@@ -4,13 +4,13 @@ import { vendorProductsTable } from "@/config/vendorProductsSchema";
 import { vendorsTable } from "@/config/vendorsSchema";
 import { eq, and } from "drizzle-orm";
 
-interface Params {
-  params: { uuid: string };
-}
 
-export async function GET(_req: NextRequest, { params }: Params) {
+
+export async function GET(_req: NextRequest,
+   context: { params: Promise<{ uuid: string }> }
+  ) {
   try {
-    const { uuid } = await params;
+    const { uuid } = await context.params;
 
     const [row] = await db
       .select({

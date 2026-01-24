@@ -9,10 +9,10 @@ import { eq, and, isNull, desc } from "drizzle-orm";
 
 export async function GET(
     req: NextRequest,
-    { params }: { params: { uuid: string } }
+    context: { params: Promise<{ uuid: string }> }
 ) {
     try {
-        const {uuid} = await params;
+        const {uuid} = await context.params;
         /* -----------------------------
            Auth
         ----------------------------- */

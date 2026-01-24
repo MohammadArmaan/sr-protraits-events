@@ -2,15 +2,8 @@
 
 import Loader from "@/components/Loader";
 import { useVendor } from "@/hooks/queries/useVendor";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-
-const AUTH_ROUTES = [
-    "/vendor/sign-in",
-    "/vendor/register",
-    "/vendor/forgot-password",
-    "/vendor/password-reset",
-];
 
 export default function VendorAuthWrapper({
     children,
@@ -19,41 +12,24 @@ export default function VendorAuthWrapper({
 }) {
     const { data: vendor, isLoading } = useVendor();
     const router = useRouter();
-    const pathname = usePathname();
-
-    const isAuthRoute = AUTH_ROUTES.includes(pathname);
 
     useEffect(() => {
-        // Only redirect if:
-        // - auth check is done
-        // - vendor is NOT logged in
-        // - current route is NOT an auth route
-        if (!isLoading && !vendor && !isAuthRoute) {
+        if (!isLoading && !vendor) {
             router.replace("/vendor/sign-in");
         }
-    }, [vendor, isLoading, isAuthRoute, router]);
+    }, [isLoading, vendor, router]);
 
-    if (isLoading) {
+    if (isLoading || !vendor) {
         return (
-            <div className="flex justify-center items-center h-screen">
+            <div className="flex h-screen items-center justify-center">
                 <Loader />
             </div>
         );
     }
 
-    // ✅ Allow auth pages without redirect
-    if (!vendor && isAuthRoute) {
-        return <>{children}</>;
-    }
-
-    // ✅ Allow protected pages when logged in
-    if (vendor) {
-        return (
-            <main className="min-h-screen pt-28 pb-12 px-4 md:px-10 max-w-7xl mx-auto w-full">
-                {children}
-            </main>
-        );
-    }
-
-    return null;
+    return (
+        <main className="min-h-screen pt-28 pb-12 px-4 md:px-10 max-w-7xl mx-auto w-full">
+            {children}
+        </main>
+    );
 }

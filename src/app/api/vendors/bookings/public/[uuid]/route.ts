@@ -8,10 +8,10 @@ import { getVendorFromRequest } from "@/lib/vendor/getVendorFromRequest";
 
 export async function GET(
     req: NextRequest,
-    { params }: { params: { uuid: string } }
+    context: { params: Promise<{ uuid: string }> }
 ) {
     try {
-        const { uuid } = await params;
+        const { uuid } = await context.params;
 
         const vendor = await getVendorFromRequest(req);
         if (!vendor) {

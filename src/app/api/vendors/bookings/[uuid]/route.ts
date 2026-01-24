@@ -12,10 +12,10 @@ const bookedByVendor = alias(vendorsTable, "booked_by_vendor");
 
 export async function GET(
     _req: NextRequest,
-    { params }: { params: { uuid: string } }
+    context: { params: Promise<{ uuid: string }> }
 ) {
     try {
-        const { uuid } = await params;
+        const { uuid } = await context.params;
 
         if (!uuid) {
             return NextResponse.json(

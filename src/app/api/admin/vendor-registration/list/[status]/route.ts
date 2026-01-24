@@ -7,10 +7,10 @@ import { adminsTable } from "@/config/adminsSchema";
 
 export async function GET(
     req: NextRequest,
-    { params }: { params: { status: string } }
+    context: { params: Promise<{ status: string }> }
 ) {
     try {
-        const { status } = await params;
+        const { status } = await context.params;
 
         if (!status) {
             return NextResponse.json(

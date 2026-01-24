@@ -17,12 +17,12 @@ interface AdminTokenPayload {
 
 export async function GET(
     req: NextRequest,
-    { params }: { params: { id: string } },
+    context: { params: Promise<{ id: string }> }
 ) {
     try {
         requireAdmin(req);
 
-        const { id } = await params;
+        const { id } = await context.params;
         const productId = Number(id);
         if (!Number.isInteger(productId)) {
             return NextResponse.json(
@@ -59,13 +59,13 @@ export async function GET(
 
 export async function PUT(
     req: NextRequest,
-    { params }: { params: { id: string } },
+    context: { params: Promise<{ id: string }> }
 ) {
     try {
         /* ------------------------------------------------------------------ */
         /*                               ID                                   */
         /* ------------------------------------------------------------------ */
-        const { id } = await params;
+        const {id} = await context.params
         const productId = Number(id);
         if (!Number.isInteger(productId)) {
             return NextResponse.json(
@@ -91,7 +91,10 @@ export async function PUT(
         ) as AdminTokenPayload;
 
         if (!["admin", "superadmin"].includes(decoded.role)) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+            return NextResponse.json(
+                { error: "Forbidden" },
+                { status: 403 },
+            );
         }
 
         /* ------------------------------------------------------------------ */
@@ -173,7 +176,8 @@ export async function PUT(
         /* ------------------------------------------------------------------ */
         /*                       ADVANCE NORMALIZATION                         */
         /* ------------------------------------------------------------------ */
-        const resolvedAdvanceType = advanceType ?? existingProduct.advanceType;
+        const resolvedAdvanceType =
+            advanceType ?? existingProduct.advanceType;
 
         const normalizedAdvanceValue =
             advanceValue !== undefined && advanceValue !== null
@@ -190,10 +194,14 @@ export async function PUT(
         const maxBasePrice = Math.max(resolvedSingle, resolvedMulti);
 
         if (resolvedAdvanceType === "PERCENTAGE") {
-            if (normalizedAdvanceValue <= 0 || normalizedAdvanceValue > 100) {
+            if (
+                normalizedAdvanceValue <= 0 ||
+                normalizedAdvanceValue > 100
+            ) {
                 return NextResponse.json(
                     {
-                        error: "Advance percentage must be between 1 and 100",
+                        error:
+                            "Advance percentage must be between 1 and 100",
                     },
                     { status: 400 },
                 );
@@ -207,7 +215,8 @@ export async function PUT(
             ) {
                 return NextResponse.json(
                     {
-                        error: "Fixed advance must be greater than 0 and less than product price",
+                        error:
+                            "Fixed advance must be greater than 0 and less than product price",
                     },
                     { status: 400 },
                 );
@@ -258,12 +267,15 @@ export async function PUT(
                 basePriceMultiDay: resolvedMulti.toFixed(2),
 
                 pricingUnit:
-                    pricingUnit === "PER_EVENT" ? "PER_EVENT" : "PER_DAY",
+                    pricingUnit === "PER_EVENT"
+                        ? "PER_EVENT"
+                        : "PER_DAY",
 
                 advanceType: resolvedAdvanceType,
                 advanceValue: normalizedAdvanceValue.toFixed(2),
 
-                isFeatured: isFeatured ?? existingProduct.isFeatured,
+                isFeatured:
+                    isFeatured ?? existingProduct.isFeatured,
                 isActive: isActive ?? existingProduct.isActive,
 
                 updatedAt: new Date(),
@@ -303,12 +315,13 @@ export async function PUT(
     }
 }
 
+
 export async function DELETE(
     req: NextRequest,
-    { params }: { params: { id: string } },
+    context: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = await params;
+        const { id } = await context.params;
         const productId = Number(id);
 
         if (!Number.isInteger(productId)) {

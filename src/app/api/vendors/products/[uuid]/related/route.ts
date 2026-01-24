@@ -6,10 +6,10 @@ import { and, desc, eq, ne } from "drizzle-orm";
 
 export async function GET(
     _req: NextRequest,
-    { params }: { params: { uuid: string } }
+    context: { params: Promise<{ uuid: string }> }
 ) {
     try {
-        const { uuid } = await params;
+        const { uuid } = await context.params;
 
         /* ------------------ Fetch Current Product ------------------ */
         const [currentProduct] = await db

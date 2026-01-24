@@ -13,10 +13,10 @@ import { generateInvoicePdf } from "@/lib/invoice-templates/generateInvoicePdf";
 
 export async function GET(
     req: NextRequest,
-    { params }: { params: { uuid: string } }
+    context: { params: Promise<{ uuid: string }> }
 ) {
     try {
-        const { uuid } = await params;
+        const { uuid } = await context.params;
         const token = req.cookies.get("vendor_token")?.value;
         if (!token) {
             return NextResponse.json(

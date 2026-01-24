@@ -10,10 +10,10 @@ import { vendorsTable } from "@/config/vendorsSchema";
 
 export async function POST(
     req: NextRequest,
-    { params }: { params: { uuid: string } }
+    context: { params: Promise<{ uuid: string }> }
 ) {
     try {
-        const { uuid } = await params;
+        const { uuid } = await context.params;
         /* -----------------------------
            Auth: Vendor token
         ----------------------------- */
@@ -172,10 +172,10 @@ export async function POST(
 
 export async function GET(
     req: NextRequest,
-    { params }: { params: { uuid: string } }
+    context: { params: Promise<{ uuid: string }> }
 ) {
     try {
-        const { uuid } = await params;
+        const { uuid } = await context.params;
         const cursor = new URL(req.url).searchParams.get("cursor");
 
         const [product] = await db
@@ -249,10 +249,10 @@ export async function GET(
 
 export async function DELETE(
     req: NextRequest,
-    { params }: { params: { uuid: string } }
+    context: { params: Promise<{ uuid: string }> }
 ) {
     try {
-        const { uuid } = await params;
+        const { uuid } = await context.params;
 
         /* -----------------------------
            Auth: Vendor token

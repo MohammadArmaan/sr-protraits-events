@@ -27,10 +27,10 @@ const s3 = new S3Client({
 
 export async function PUT(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    context: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = await params;
+        const { id } = await context.params;
         const bannerId = Number(id);
 
         if (!Number.isInteger(bannerId)) {
@@ -165,10 +165,10 @@ export async function PUT(
 
 export async function DELETE(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    context: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = await params;
+        const { id } = await context.params;
         const bannerId = Number(id);
 
         if (!Number.isInteger(bannerId)) {

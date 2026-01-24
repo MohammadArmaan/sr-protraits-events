@@ -6,12 +6,12 @@ import { couponCodesTable } from "@/config/couponCodeSchema";
 
 export async function PUT(
     req: NextRequest,
-    { params }: { params: { id: string } },
+    context: { params: Promise<{ id: string }> },
 ) {
     try {
         await requireAdmin(req); // ✅ FIX #2
 
-        const { id } = await params; // ✅ FIX #1
+        const { id } = await context.params; // ✅ FIX #1
         const couponId = Number(id);
 
         if (!Number.isInteger(couponId)) {
@@ -56,22 +56,44 @@ export async function PUT(
             );
         }
 
-        /* ---------- SAFE NUMBER HANDLER ---------- */
-        const num = (v: number | null | undefined) =>
-            v === null ? null : v !== undefined ? v.toString() : undefined;
+        const numberToStringOrUndefined = (
+            v: number | null | undefined,
+        ): string | undefined => {
+            if (v === undefined) return undefined;
+            if (v === null) return undefined;
+            return v.toString();
+        };
 
         /* ---------- BUILD UPDATE ---------- */
         const updateData: Partial<typeof couponCodesTable.$inferInsert> = {};
 
-        if (code !== undefined) updateData.code = code.toUpperCase();
-        if (type !== undefined) updateData.type = type;
-        if (value !== undefined) updateData.value = num(value);
-        if (minAmount !== undefined) updateData.minAmount = num(minAmount);
-        if (maxDiscount !== undefined)
-            updateData.maxDiscount = num(maxDiscount);
-        if (isActive !== undefined) updateData.isActive = isActive;
-        if (expiresAt !== undefined)
-            updateData.expiresAt = expiresAt ? new Date(expiresAt) : null;
+        if (code !== undefined) {
+            updateData.code = code.toUpperCase();
+        }
+
+        if (type !== undefined) {
+            updateData.type = type;
+        }
+
+        if (value !== undefined) {
+            updateData.value = value.toString(); // ✅ string only
+        }
+
+        if (minAmount !== undefined) {
+            updateData.minAmount = numberToStringOrUndefined(minAmount);
+        }
+
+        if (maxDiscount !== undefined) {
+            updateData.maxDiscount = numberToStringOrUndefined(maxDiscount);
+        }
+
+        if (isActive !== undefined) {
+            updateData.isActive = isActive;
+        }
+
+        if (expiresAt !== undefined) {
+            updateData.expiresAt = expiresAt ? new Date(expiresAt) : null; // ✅ nullable column
+        }
 
         if (Object.keys(updateData).length === 0) {
             return NextResponse.json(
@@ -121,12 +143,12 @@ export async function PUT(
 
 export async function DELETE(
     _req: NextRequest,
-    { params }: { params: { id: string } },
+    context: { params: Promise<{ id: string }> },
 ) {
     try {
         requireAdmin(_req);
 
-        const { id } = await params;
+        const { id } = await context.params;
         const couponId = Number(id);
         if (!Number.isInteger(couponId)) {
             return NextResponse.json(

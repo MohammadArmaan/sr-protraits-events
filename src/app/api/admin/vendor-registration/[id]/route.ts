@@ -7,10 +7,10 @@ import jwt from "jsonwebtoken";
 
 export async function GET(
     req: NextRequest,
-    { params }: { params: { id: string } },
+    context: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = await params;
+        const { id } = await context.params;
         const vendorId = Number(id);
 
         if (!vendorId || Number.isNaN(vendorId)) {
