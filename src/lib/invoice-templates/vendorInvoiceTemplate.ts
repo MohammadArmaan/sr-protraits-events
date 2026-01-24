@@ -41,7 +41,7 @@ export function vendorInvoiceTemplate(data: InvoiceData) {
     <!-- HEADER -->
     <tr>
       <td style="padding:24px;text-align:center;background:#f8f8f8;">
-        <img src="cid:logo" width="80" />
+        <img src="/logo.webp" width="80" />
         <h1 style="margin:10px 0;">SR Portraits & Events</h1>
         <p style="font-size:14px;color:#666;">INVOICE</p>
       </td>

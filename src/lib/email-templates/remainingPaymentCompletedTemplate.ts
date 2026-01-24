@@ -16,7 +16,7 @@ export function remainingPaymentCompletedTemplate(
 <tr>
 <td style="padding:30px;text-align:center;">
 
-<img src="cid:logo" width="90" style="margin-bottom:10px;" />
+<img src="/logo.webp" width="90" style="margin-bottom:10px;" />
 
 <h2 style="margin:0 0 10px;color:#111;">
 Payment Completed 🎉

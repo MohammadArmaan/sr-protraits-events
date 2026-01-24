@@ -33,6 +33,19 @@ export default function VerifyEmail({ formData, setFormData }: Props) {
         return () => clearTimeout(id);
     }, [timer]);
 
+    // ---------------- PASTE HANDLER ----------------
+    function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
+        e.preventDefault();
+        const pastedData = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+        
+        if (pastedData.length === 6) {
+            setFormData({ ...formData, otp: pastedData });
+            
+            // Focus the last input
+            inputsRef.current[5]?.focus();
+        }
+    }
+
     // ---------------- OTP HANDLERS ----------------
     function handleOtpChange(index: number, value: string) {
         const sanitized = value.replace(/\D/g, "").slice(0, 1);
@@ -140,6 +153,7 @@ export default function VerifyEmail({ formData, setFormData }: Props) {
                         value={formData.otp[index] || ""}
                         onChange={(e) => handleOtpChange(index, e.target.value)}
                         onKeyDown={(e) => handleBackspace(e, index)}
+                        onPaste={handlePaste}
                         className="
         w-12 h-14 text-center text-xl font-semibold 
         bg-muted border border-border rounded-xl

@@ -19,7 +19,7 @@ export function bookingApprovedVendorTemplate(
       
       <tr>
         <td style="padding:28px;text-align:center;background:#f8f8f8;">
-          <img src="cid:logo" width="90" />
+          <img src="/logo.webp" width="90" />
           <h1>SR Portraits & Events</h1>
         </td>
       </tr>

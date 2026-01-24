@@ -14,7 +14,7 @@ export function vendorBankDetailsApprovedEmailTemplate(name: string) {
       <!-- HEADER -->
       <tr>
         <td style="padding:28px;text-align:center;background:#f8f8f8;">
-          <img src="cid:logo" width="90" style="margin-bottom:10px;" />
+          <img src="/logo.webp" width="90" style="margin-bottom:10px;" />
           <h1 style="margin:0;font-size:26px;color:hsl(222,47%,11%);">
             SR Portraits & Events
           </h1>

@@ -14,7 +14,7 @@ export function vendorProductCreatedTemplate(
       
       <tr>
         <td style="padding:28px;text-align:center;background:#f8f8f8;">
-          <img src="cid:logo" width="90" />
+          <img src="/logo.webpo" width="90" />
           <h1 style="margin:10px 0 0;color:hsl(222,47%,11%);">
             SR Portraits & Events
           </h1>
