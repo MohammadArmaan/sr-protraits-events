@@ -1,2 +1,0 @@
-ALTER TABLE "vendor_bookings" ADD COLUMN "bookedByVendorId" integer NOT NULL;--> statement-breakpoint
-ALTER TABLE "vendor_bookings" ADD CONSTRAINT "vendor_bookings_bookedByVendorId_vendors_id_fk" FOREIGN KEY ("bookedByVendorId") REFERENCES "public"."vendors"("id") ON DELETE no action ON UPDATE no action;

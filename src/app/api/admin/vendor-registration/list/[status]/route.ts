@@ -47,7 +47,9 @@ export async function GET(
                 fullName: vendorsTable.fullName,
                 occupation: vendorsTable.occupation,
                 businessName: vendorsTable.businessName,
+                businessDescription: vendorsTable.businessDescription,
                 email: vendorsTable.email,
+                phone: vendorsTable.phone,
                 profilePhoto: vendorsTable.profilePhoto,
                 businessPhotos: vendorsTable.businessPhotos,
 

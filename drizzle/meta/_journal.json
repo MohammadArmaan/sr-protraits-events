@@ -5,85 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1765858858912,
-      "tag": "0000_quiet_masked_marvel",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1765859970758,
-      "tag": "0001_spotty_riptide",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1765870124225,
-      "tag": "0002_sparkling_ronan",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1765870947162,
-      "tag": "0003_mysterious_zarek",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1765892091529,
-      "tag": "0004_woozy_silver_surfer",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1766036044648,
-      "tag": "0005_premium_phalanx",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1766046406974,
-      "tag": "0006_illegal_gertrude_yorkes",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1766047312378,
-      "tag": "0007_nasty_magneto",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1766058267850,
-      "tag": "0008_parched_the_initiative",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1766209969603,
-      "tag": "0009_silent_ultimates",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1766214026147,
-      "tag": "0010_shallow_cannonball",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1766302276383,
-      "tag": "0011_nice_eternals",
+      "when": 1769061553290,
+      "tag": "0000_simple_madame_hydra",
       "breakpoints": true
     }
   ]

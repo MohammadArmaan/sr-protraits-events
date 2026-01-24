@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { adminLogout } from "@/lib/admin/logout";
+import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export function AdminLogoutButton() {
@@ -14,11 +15,11 @@ export function AdminLogoutButton() {
 
     return (
         <Button
+            size="icon"
             variant="destructive"
-            className="rounded-full px-6"
             onClick={handleLogout}
         >
-            Logout
+            <LogOut className="h-4 w-4 mr-2" />
         </Button>
     );
 }

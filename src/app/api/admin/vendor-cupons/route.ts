@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
             minAmount,
             maxDiscount,
             expiresAt,
+            isActive
         } = await req.json();
 
         if (!code || !type || value === undefined) {
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest) {
                 code: code.toUpperCase(),
                 type,
                 value,
+                isActive,
                 minAmount: minAmount ?? null,
                 maxDiscount: maxDiscount ?? null,
                 expiresAt: expiresAt ? new Date(expiresAt) : null,

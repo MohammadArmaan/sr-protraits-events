@@ -4,7 +4,7 @@ import { adminsTable } from "@/config/adminsSchema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { AdminJWTPayload } from "@/types/admin";
+import { AdminJWTPayload } from "@/types/admin/admin";
 
 export async function POST(req: NextRequest) {
     try {
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
         if (!email || !password) {
             return NextResponse.json(
                 { error: "Email and password required" },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
@@ -26,14 +26,20 @@ export async function POST(req: NextRequest) {
             .where(eq(adminsTable.email, email));
 
         if (adminList.length === 0) {
-            return NextResponse.json({ error: "Invalid credentials" }, { status: 400 });
+            return NextResponse.json(
+                { error: "Invalid credentials" },
+                { status: 400 },
+            );
         }
 
         const admin = adminList[0];
 
         const match = await bcrypt.compare(password, admin.passwordHash);
         if (!match) {
-            return NextResponse.json({ error: "Invalid credentials" }, { status: 400 });
+            return NextResponse.json(
+                { error: "Invalid credentials" },
+                { status: 400 },
+            );
         }
 
         const payload: AdminJWTPayload = {

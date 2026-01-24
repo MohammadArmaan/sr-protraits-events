@@ -1,0 +1,1 @@
+export const REGISTRATION_PAGE_SIZE = 10

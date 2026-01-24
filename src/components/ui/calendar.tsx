@@ -69,7 +69,7 @@ function Calendar({
                 ),
                 week: cn("flex mt-2", defaultClassNames.week),
                 day: cn(
-                    "relative w-9 h-9 p-0 text-center [&:has(button[data-selected])]:bg-accent",
+                    "relative w-9 h-9 p-0 text-center [&:has(button[data-selected])]:bg-transparent",
                     defaultClassNames.day
                 ),
                 range_start: cn(

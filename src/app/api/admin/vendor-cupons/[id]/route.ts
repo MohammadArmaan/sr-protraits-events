@@ -6,19 +6,22 @@ import { couponCodesTable } from "@/config/couponCodeSchema";
 
 export async function PUT(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: { id: string } },
 ) {
     try {
-        requireAdmin(req);
+        await requireAdmin(req); // ✅ FIX #2
 
-        const { id } = await params;
+        const { id } = await params; // ✅ FIX #1
         const couponId = Number(id);
+
         if (!Number.isInteger(couponId)) {
             return NextResponse.json(
                 { error: "Invalid coupon id" },
-                { status: 400 }
+                { status: 400 },
             );
         }
+
+        const body = await req.json();
 
         const {
             code,
@@ -32,31 +35,32 @@ export async function PUT(
             code?: string;
             type?: "FLAT" | "PERCENT" | "UPTO";
             value?: number;
-            minAmount?: number;
-            maxDiscount?: number;
+            minAmount?: number | null;
+            maxDiscount?: number | null;
             isActive?: boolean;
             expiresAt?: string;
-        } = await req.json();
+        } = body;
 
         /* ---------- VALIDATION ---------- */
         if (type && !["FLAT", "PERCENT", "UPTO"].includes(type)) {
             return NextResponse.json(
                 { error: "Invalid coupon type" },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
         if (type === "PERCENT" && value !== undefined && value > 100) {
             return NextResponse.json(
                 { error: "Percentage cannot exceed 100" },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
-        const num = (v?: number) =>
-            v !== undefined ? v.toString() : undefined;
+        /* ---------- SAFE NUMBER HANDLER ---------- */
+        const num = (v: number | null | undefined) =>
+            v === null ? null : v !== undefined ? v.toString() : undefined;
 
-        /* ---------- BUILD UPDATE OBJECT ---------- */
+        /* ---------- BUILD UPDATE ---------- */
         const updateData: Partial<typeof couponCodesTable.$inferInsert> = {};
 
         if (code !== undefined) updateData.code = code.toUpperCase();
@@ -69,6 +73,13 @@ export async function PUT(
         if (expiresAt !== undefined)
             updateData.expiresAt = expiresAt ? new Date(expiresAt) : null;
 
+        if (Object.keys(updateData).length === 0) {
+            return NextResponse.json(
+                { error: "No fields to update" },
+                { status: 400 },
+            );
+        }
+
         /* ---------- UPDATE ---------- */
         const [updated] = await db
             .update(couponCodesTable)
@@ -79,37 +90,38 @@ export async function PUT(
         if (!updated) {
             return NextResponse.json(
                 { error: "Coupon not found" },
-                { status: 404 }
+                { status: 404 },
             );
         }
 
         return NextResponse.json({ success: true, coupon: updated });
-    } catch (error: unknown) {
+    } catch (error) {
         if (error instanceof Error) {
             if (error.message === "UNAUTHORIZED") {
                 return NextResponse.json(
                     { error: "Unauthorized" },
-                    { status: 401 }
+                    { status: 401 },
                 );
             }
             if (error.message === "FORBIDDEN") {
                 return NextResponse.json(
                     { error: "Forbidden" },
-                    { status: 403 }
+                    { status: 403 },
                 );
             }
         }
 
+        console.error("UPDATE COUPON ERROR:", error);
         return NextResponse.json(
             { error: "Internal server error" },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }
 
 export async function DELETE(
     _req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: { id: string } },
 ) {
     try {
         requireAdmin(_req);
@@ -119,7 +131,7 @@ export async function DELETE(
         if (!Number.isInteger(couponId)) {
             return NextResponse.json(
                 { error: "Invalid coupon id" },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
@@ -135,7 +147,7 @@ export async function DELETE(
         if (!deleted) {
             return NextResponse.json(
                 { error: "Coupon not found" },
-                { status: 404 }
+                { status: 404 },
             );
         }
 
@@ -149,21 +161,21 @@ export async function DELETE(
             if (error.message === "UNAUTHORIZED") {
                 return NextResponse.json(
                     { error: "Unauthorized" },
-                    { status: 401 }
+                    { status: 401 },
                 );
             }
 
             if (error.message === "FORBIDDEN") {
                 return NextResponse.json(
                     { error: "Forbidden" },
-                    { status: 403 }
+                    { status: 403 },
                 );
             }
         }
 
         return NextResponse.json(
             { error: "Internal server error" },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }
