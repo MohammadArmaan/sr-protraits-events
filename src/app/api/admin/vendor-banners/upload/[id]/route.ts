@@ -20,14 +20,14 @@ interface AdminTokenPayload {
 const s3 = new S3Client({
     region: process.env.AWS_REGION!,
     credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS!,
+        accessKeyId: process.env.AWS_ACCESS_KEY_Id!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_Key!,
     },
 });
 
 export async function PUT(
     req: NextRequest,
-    context: { params: Promise<{ id: string }> }
+    context: { params: Promise<{ id: string }> },
 ) {
     try {
         const { id } = await context.params;
@@ -36,7 +36,7 @@ export async function PUT(
         if (!Number.isInteger(bannerId)) {
             return NextResponse.json(
                 { error: "Invalid banner id" },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
@@ -45,13 +45,13 @@ export async function PUT(
         if (!token) {
             return NextResponse.json(
                 { error: "Unauthorized" },
-                { status: 401 }
+                { status: 401 },
             );
         }
 
         const decoded = jwt.verify(
             token,
-            process.env.JWT_SECRET!
+            process.env.JWT_SECRET!,
         ) as AdminTokenPayload;
 
         if (!["admin", "superadmin"].includes(decoded.role)) {
@@ -67,7 +67,7 @@ export async function PUT(
         if (!banner) {
             return NextResponse.json(
                 { error: "Banner not found" },
-                { status: 404 }
+                { status: 404 },
             );
         }
 
@@ -91,7 +91,7 @@ export async function PUT(
                 new DeleteObjectCommand({
                     Bucket: process.env.AWS_S3_BUCKET_NAME!,
                     Key: oldKey,
-                })
+                }),
             );
 
             // upload new image
@@ -104,7 +104,7 @@ export async function PUT(
                     Key: newKey,
                     Body: buffer,
                     ContentType: file.type,
-                })
+                }),
             );
 
             imageUrl = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${newKey}`;
@@ -151,21 +151,25 @@ export async function PUT(
             .where(eq(vendorBannersTable.id, bannerId));
 
         return NextResponse.json(
-            { success: true, message: "Banner updated successfully", updatedData: updateData },
-            { status: 200 }
+            {
+                success: true,
+                message: "Banner updated successfully",
+                updatedData: updateData,
+            },
+            { status: 200 },
         );
     } catch (error) {
         console.error("Update Banner Error:", error);
         return NextResponse.json(
             { error: "Internal server error" },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }
 
 export async function DELETE(
     req: NextRequest,
-    context: { params: Promise<{ id: string }> }
+    context: { params: Promise<{ id: string }> },
 ) {
     try {
         const { id } = await context.params;
@@ -174,7 +178,7 @@ export async function DELETE(
         if (!Number.isInteger(bannerId)) {
             return NextResponse.json(
                 { error: "Invalid banner id" },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
@@ -183,13 +187,13 @@ export async function DELETE(
         if (!token) {
             return NextResponse.json(
                 { error: "Unauthorized" },
-                { status: 401 }
+                { status: 401 },
             );
         }
 
         const decoded = jwt.verify(
             token,
-            process.env.JWT_SECRET!
+            process.env.JWT_SECRET!,
         ) as AdminTokenPayload;
 
         if (!["admin", "superadmin"].includes(decoded.role)) {
@@ -205,7 +209,7 @@ export async function DELETE(
         if (!banner) {
             return NextResponse.json(
                 { error: "Banner not found" },
-                { status: 404 }
+                { status: 404 },
             );
         }
 
@@ -216,7 +220,7 @@ export async function DELETE(
             new DeleteObjectCommand({
                 Bucket: process.env.AWS_S3_BUCKET_NAME!,
                 Key: key,
-            })
+            }),
         );
 
         /* ------------------ DELETE DB ROW ------------------ */
@@ -226,13 +230,13 @@ export async function DELETE(
 
         return NextResponse.json(
             { success: true, message: "Banner deleted successfully" },
-            { status: 200 }
+            { status: 200 },
         );
     } catch (error) {
         console.error("Delete Banner Error:", error);
         return NextResponse.json(
             { error: "Internal server error" },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }

@@ -29,8 +29,8 @@ interface Step4Response {
 const s3 = new S3Client({
     region: process.env.AWS_REGION!,
     credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS!,
+        accessKeyId: process.env.AWS_ACCESS_KEY_Id!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_Key!,
     },
 });
 
@@ -46,14 +46,14 @@ export async function POST(req: NextRequest) {
         if (!onboardingToken) {
             return NextResponse.json(
                 { error: "Missing onboarding token." },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
         if (files.length === 0) {
             return NextResponse.json(
                 { error: "At least one photo must be uploaded." },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
@@ -64,12 +64,12 @@ export async function POST(req: NextRequest) {
         try {
             decoded = jwt.verify(
                 onboardingToken,
-                process.env.JWT_SECRET!
+                process.env.JWT_SECRET!,
             ) as OnboardingTokenPayload;
         } catch {
             return NextResponse.json(
                 { error: "Invalid or expired onboarding token." },
-                { status: 401 }
+                { status: 401 },
             );
         }
 
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
         if (vendorResult.length === 0) {
             return NextResponse.json(
                 { error: "Vendor not found." },
-                { status: 404 }
+                { status: 404 },
             );
         }
 
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
                 {
                     error: `Vendor is currently on step ${vendor.currentStep}, cannot upload photos.`,
                 },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
             .set({
                 businessPhotos: updatedPhotos,
                 currentStep: 4,
-                status: "BUSINESS_PHOTOS_UPLOADED"
+                status: "BUSINESS_PHOTOS_UPLOADED",
             })
             .where(eq(vendorsTable.id, vendorId));
 
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
         const newToken = jwt.sign(
             { vendorId, step: 4 },
             process.env.JWT_SECRET!,
-            { expiresIn: "1h" }
+            { expiresIn: "1h" },
         );
 
         // ------------------------------
@@ -160,13 +160,13 @@ export async function POST(req: NextRequest) {
                 onboardingToken: newToken,
                 photos: updatedPhotos,
             },
-            { status: 200 }
+            { status: 200 },
         );
     } catch (error) {
         console.error("Step 4 Upload Error:", error);
         return NextResponse.json(
             { error: "Internal server error." },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }

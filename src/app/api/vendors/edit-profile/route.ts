@@ -11,8 +11,8 @@ import crypto from "crypto";
 const s3 = new S3Client({
     region: process.env.AWS_REGION!,
     credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS!,
+        accessKeyId: process.env.AWS_ACCESS_KEY_Id!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_Key!,
     },
 });
 
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
         if (!token)
             return NextResponse.json(
                 { error: "Missing token" },
-                { status: 401 }
+                { status: 401 },
             );
 
         // Decode vendor token
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
         } catch {
             return NextResponse.json(
                 { error: "Invalid or expired token" },
-                { status: 401 }
+                { status: 401 },
             );
         }
 
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
         if (!vendor)
             return NextResponse.json(
                 { error: "Vendor not found" },
-                { status: 404 }
+                { status: 404 },
             );
 
         // -----------------------------------------
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
                     // @ts-ignore
                     changes[key] = newValue;
                 }
-            }
+            },
         );
 
         // -----------------------------------------
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
                     Key: fileName,
                     Body: buffer,
                     ContentType: profileFile.type,
-                })
+                }),
             );
 
             newProfilePhotoUrl = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
@@ -128,23 +128,23 @@ export async function POST(req: NextRequest) {
                     Key: fileName,
                     Body: buffer,
                     ContentType: file.type,
-                })
+                }),
             );
 
             newBusinessPhotoUrls.push(
-                `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`
+                `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`,
             );
         }
 
         // Step 2: Detect removed images
         const frontendBusinessPhotos = JSON.parse(
-            form.get("existingBusinessPhotos")?.toString() || "[]"
+            form.get("existingBusinessPhotos")?.toString() || "[]",
         ) as string[];
 
         const oldBusinessPhotos = vendor.businessPhotos ?? [];
 
         const removedBusinessPhotos = oldBusinessPhotos.filter(
-            (photo: string) => !frontendBusinessPhotos.includes(photo)
+            (photo: string) => !frontendBusinessPhotos.includes(photo),
         );
 
         // -----------------------------------------
@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
                 success: true,
                 message: "Profile edit submitted for admin approval",
             },
-            { status: 200 }
+            { status: 200 },
         );
     } catch (err) {
         console.error("Edit Profile Error:", err);

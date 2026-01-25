@@ -11,8 +11,8 @@ import { vendorEditRejectedEmailTemplate } from "@/lib/email-templates/vendorEdi
 const s3 = new S3Client({
     region: process.env.AWS_REGION!,
     credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS!,
+        accessKeyId: process.env.AWS_ACCESS_KEY_Id!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_Key!,
     },
 });
 
@@ -28,18 +28,30 @@ export async function POST(req: NextRequest) {
         // --------------------------
         const token = req.cookies.get("admin_token")?.value;
         if (!token) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            return NextResponse.json(
+                { error: "Unauthorized" },
+                { status: 401 },
+            );
         }
 
         let decoded: DecodedToken;
         try {
-            decoded = jwt.verify(token, process.env.JWT_SECRET!) as DecodedToken;
+            decoded = jwt.verify(
+                token,
+                process.env.JWT_SECRET!,
+            ) as DecodedToken;
         } catch {
-            return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+            return NextResponse.json(
+                { error: "Invalid token" },
+                { status: 401 },
+            );
         }
 
         if (decoded.role !== "admin") {
-            return NextResponse.json({ error: "Permission denied" }, { status: 403 });
+            return NextResponse.json(
+                { error: "Permission denied" },
+                { status: 403 },
+            );
         }
 
         // --------------------------
@@ -49,7 +61,10 @@ export async function POST(req: NextRequest) {
         const editId: number = Number(body.editId);
 
         if (!editId) {
-            return NextResponse.json({ error: "Missing editId" }, { status: 400 });
+            return NextResponse.json(
+                { error: "Missing editId" },
+                { status: 400 },
+            );
         }
 
         // --------------------------
@@ -61,11 +76,17 @@ export async function POST(req: NextRequest) {
             .where(eq(vendorProfileEdits.id, editId));
 
         if (!edit) {
-            return NextResponse.json({ error: "Request not found" }, { status: 404 });
+            return NextResponse.json(
+                { error: "Request not found" },
+                { status: 404 },
+            );
         }
 
         if (edit.status !== "PENDING") {
-            return NextResponse.json({ error: "Already processed" }, { status: 400 });
+            return NextResponse.json(
+                { error: "Already processed" },
+                { status: 400 },
+            );
         }
 
         // --------------------------
@@ -77,7 +98,10 @@ export async function POST(req: NextRequest) {
             .where(eq(vendorsTable.id, edit.vendorId));
 
         if (!vendor) {
-            return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
+            return NextResponse.json(
+                { error: "Vendor not found" },
+                { status: 404 },
+            );
         }
 
         // ----------------------------------------------------------
@@ -90,7 +114,7 @@ export async function POST(req: NextRequest) {
                     new DeleteObjectCommand({
                         Bucket: process.env.AWS_S3_BUCKET_NAME!,
                         Key: key,
-                    })
+                    }),
                 );
             }
         }
@@ -109,7 +133,7 @@ export async function POST(req: NextRequest) {
                     new DeleteObjectCommand({
                         Bucket: process.env.AWS_S3_BUCKET_NAME!,
                         Key: key,
-                    })
+                    }),
                 );
             }
         }
@@ -137,13 +161,13 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json(
             { success: true, message: "Profile edit rejected" },
-            { status: 200 }
+            { status: 200 },
         );
     } catch (error) {
         console.error("Reject Error:", error);
         return NextResponse.json(
             { error: "Server error rejecting request" },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }

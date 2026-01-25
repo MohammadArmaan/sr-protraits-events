@@ -15,8 +15,8 @@ interface AdminTokenPayload {
 const s3 = new S3Client({
     region: process.env.AWS_REGION!,
     credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS!,
+        accessKeyId: process.env.AWS_ACCESS_KEY_Id!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_Key!,
     },
 });
 
@@ -27,13 +27,13 @@ export async function POST(req: NextRequest) {
         if (!token) {
             return NextResponse.json(
                 { error: "Unauthorized" },
-                { status: 401 }
+                { status: 401 },
             );
         }
 
         const decoded = jwt.verify(
             token,
-            process.env.JWT_SECRET!
+            process.env.JWT_SECRET!,
         ) as AdminTokenPayload;
 
         if (!["admin", "superadmin"].includes(decoded.role)) {
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
         if (!file) {
             return NextResponse.json(
                 { error: "Image is required" },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
                 Key: key,
                 Body: buffer,
                 ContentType: file.type,
-            })
+            }),
         );
 
         const imageUrl = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
@@ -86,13 +86,13 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json(
             { success: true, message: "Banner created successfully", banners },
-            { status: 201 }
+            { status: 201 },
         );
     } catch (error) {
         console.error("Create Banner Error:", error);
         return NextResponse.json(
             { error: "Internal server error" },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }

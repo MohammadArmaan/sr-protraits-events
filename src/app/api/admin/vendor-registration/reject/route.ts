@@ -19,8 +19,8 @@ interface DecodedAdminToken {
 const s3 = new S3Client({
     region: process.env.AWS_REGION!,
     credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS!,
+        accessKeyId: process.env.AWS_ACCESS_KEY_Id!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_Key!,
     },
 });
 
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
         if (!token) {
             return NextResponse.json(
                 { error: "Unauthorized" },
-                { status: 401 }
+                { status: 401 },
             );
         }
 
@@ -42,19 +42,19 @@ export async function POST(req: NextRequest) {
         try {
             decoded = jwt.verify(
                 token,
-                process.env.JWT_SECRET!
+                process.env.JWT_SECRET!,
             ) as DecodedAdminToken;
         } catch {
             return NextResponse.json(
                 { error: "Invalid token" },
-                { status: 401 }
+                { status: 401 },
             );
         }
 
         if (decoded.role !== "admin" && decoded.role !== "superadmin") {
             return NextResponse.json(
                 { error: "Permission denied" },
-                { status: 403 }
+                { status: 403 },
             );
         }
 
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
         if (!vendorId) {
             return NextResponse.json(
                 { error: "vendorId is required" },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
         if (!vendor) {
             return NextResponse.json(
                 { error: "Vendor not found" },
-                { status: 404 }
+                { status: 404 },
             );
         }
 
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
                     new DeleteObjectCommand({
                         Bucket: process.env.AWS_S3_BUCKET_NAME!,
                         Key: key,
-                    })
+                    }),
                 );
             } catch (err) {
                 console.error("S3 Delete Error:", err);
@@ -134,13 +134,13 @@ export async function POST(req: NextRequest) {
             to: vendor.email,
             subject: "Your Vendor Registration Was Rejected ❌",
             html: vendorRegistrationRejectedEmailTemplate(
-                vendor.fullName || vendor.businessName || "Vendor"
+                vendor.fullName || vendor.businessName || "Vendor",
             ),
         });
 
         return NextResponse.json(
             { success: true, message: "Vendor rejected successfully" },
-            { status: 200 }
+            { status: 200 },
         );
     } catch (err) {
         console.error("Vendor Reject Error:", err);

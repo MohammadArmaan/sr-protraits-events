@@ -13,8 +13,8 @@ import { vendorEditApprovedEmailTemplate } from "@/lib/email-templates/vendorEdi
 const s3 = new S3Client({
     region: process.env.AWS_REGION!,
     credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS!,
+        accessKeyId: process.env.AWS_ACCESS_KEY_Id!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_Key!,
     },
 });
 
@@ -29,17 +29,17 @@ export async function POST(req: NextRequest) {
         if (!token)
             return NextResponse.json(
                 { error: "Unauthorized" },
-                { status: 401 }
+                { status: 401 },
             );
 
         const decoded = jwt.verify(
             token,
-            process.env.JWT_SECRET!
+            process.env.JWT_SECRET!,
         ) as DecodedToken;
         if (decoded.role !== "admin")
             return NextResponse.json(
                 { error: "Permission denied" },
-                { status: 403 }
+                { status: 403 },
             );
 
         const { editId } = (await req.json()) as { editId: number };
@@ -53,13 +53,13 @@ export async function POST(req: NextRequest) {
         if (!edit)
             return NextResponse.json(
                 { error: "Edit request not found" },
-                { status: 404 }
+                { status: 404 },
             );
 
         if (edit.status !== "PENDING")
             return NextResponse.json(
                 { error: "Request already processed" },
-                { status: 400 }
+                { status: 400 },
             );
 
         // fetch vendor
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         if (!vendor)
             return NextResponse.json(
                 { error: "Vendor not found" },
-                { status: 404 }
+                { status: 404 },
             );
 
         // --- Build updateData strictly typed ---
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
         if (Object.keys(setObj).length === 0)
             return NextResponse.json(
                 { success: true, message: "No changes to apply" },
-                { status: 200 }
+                { status: 200 },
             );
 
         // ---- Update vendor ----
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
                     new DeleteObjectCommand({
                         Bucket: process.env.AWS_S3_BUCKET_NAME!,
                         Key: key,
-                    })
+                    }),
                 );
             }
         }
@@ -155,13 +155,13 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json(
             { success: true, message: "Profile edit approved successfully" },
-            { status: 200 }
+            { status: 200 },
         );
     } catch (error) {
         console.error("Approve Error:", error);
         return NextResponse.json(
             { error: "Server error approving request" },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }
