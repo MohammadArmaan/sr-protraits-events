@@ -6,6 +6,6 @@ export default defineConfig({
     schema: "./src/config/*.ts",
     dialect: "postgresql",
     dbCredentials: {
-        url: process.env.DATABASE_URL!,
+        url: process.env.NEON_DATABASE_URL!,
     },
 });
