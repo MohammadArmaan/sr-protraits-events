@@ -1,5 +1,5 @@
 import puppeteer from "puppeteer-core";
-import chromium from "@sparticuz/chromium";
+import chromium from "@sparticuz/chromium-min";
 
 export async function generateInvoicePdf(
   html: string
@@ -7,7 +7,7 @@ export async function generateInvoicePdf(
   const browser = await puppeteer.launch({
     args: chromium.args,
     executablePath: await chromium.executablePath(),
-    headless: true, // ✅ Puppeteer option, NOT chromium
+    headless: true,
   });
 
   const page = await browser.newPage();
@@ -28,6 +28,5 @@ export async function generateInvoicePdf(
   });
 
   await browser.close();
-
   return Buffer.from(pdfUint8);
 }
