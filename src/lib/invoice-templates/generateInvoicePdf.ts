@@ -1,10 +1,13 @@
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
 
 export async function generateInvoicePdf(
   html: string
 ): Promise<Buffer> {
   const browser = await puppeteer.launch({
-    headless: true,
+    args: chromium.args,
+    executablePath: await chromium.executablePath(),
+    headless: true, // ✅ Puppeteer option, NOT chromium
   });
 
   const page = await browser.newPage();
@@ -26,6 +29,5 @@ export async function generateInvoicePdf(
 
   await browser.close();
 
-  // FIX: Convert Uint8Array → Buffer
   return Buffer.from(pdfUint8);
 }
