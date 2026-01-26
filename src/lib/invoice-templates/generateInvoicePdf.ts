@@ -1,28 +1,30 @@
-import PDFDocument from "pdfkit";
-import { JSDOM } from "jsdom";
+import puppeteer from "puppeteer-core";
+import chrome from "chrome-aws-lambda";
 
 export async function generateInvoicePdf(html: string): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    try {
-      const doc = new PDFDocument({ size: "A4", margin: 50 });
-      const chunks: Buffer[] = [];
-
-      doc.on("data", (chunk) => chunks.push(chunk));
-      doc.on("end", () => resolve(Buffer.concat(chunks)));
-      doc.on("error", reject);
-
-      // Parse HTML and extract text content
-      const dom = new JSDOM(html);
-      const textContent = dom.window.document.body.textContent || "";
-
-      // Add content to PDF (simplified - you'd need to parse the HTML structure)
-      doc.fontSize(20).text("Invoice", { align: "center" });
-      doc.moveDown();
-      doc.fontSize(12).text(textContent);
-
-      doc.end();
-    } catch (error) {
-      reject(error);
-    }
+  const browser = await puppeteer.launch({
+    args: chrome.args,
+    executablePath: await chrome.executablePath,
+    headless: chrome.headless,
   });
+
+  const page = await browser.newPage();
+
+  await page.setContent(html, {
+    waitUntil: "networkidle0",
+  });
+
+  const pdfUint8 = await page.pdf({
+    format: "a4",
+    printBackground: true,
+    margin: {
+      top: "20mm",
+      bottom: "20mm",
+      left: "15mm",
+      right: "15mm",
+    },
+  });
+
+  await browser.close();
+  return Buffer.from(pdfUint8);
 }

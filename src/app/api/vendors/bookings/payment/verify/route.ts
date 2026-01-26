@@ -112,80 +112,86 @@ export async function POST(req: NextRequest) {
             .from(vendorProductsTable)
             .where(eq(vendorProductsTable.id, booking.vendorProductId));
 
-        /* ---------- INVOICE ---------- */
-        const requesterInvoiceParty = {
-            name: requester.businessName,
-            email: requester.email,
-            phone: requester.phone,
-            address: requester.address,
-            profilePhoto: requester.profilePhoto,
-        };
+        /* ---------- INVOICE & EMAIL (NON-BLOCKING) ---------- */
+        try {
+            const requesterInvoiceParty = {
+                name: requester.businessName,
+                email: requester.email,
+                phone: requester.phone,
+                address: requester.address,
+                profilePhoto: requester.profilePhoto,
+            };
 
-        const providerInvoiceParty = {
-            name: provider.businessName,
-            email: provider.email,
-            phone: provider.phone,
-            address: provider.address,
-            profilePhoto: provider.profilePhoto,
-        };
+            const providerInvoiceParty = {
+                name: provider.businessName,
+                email: provider.email,
+                phone: provider.phone,
+                address: provider.address,
+                profilePhoto: provider.profilePhoto,
+            };
 
-        const invoiceHtml = vendorInvoiceTemplate({
-            invoiceNumber: booking.uuid,
-            bookingDate: new Date().toLocaleDateString(),
+            const invoiceHtml = vendorInvoiceTemplate({
+                invoiceNumber: booking.uuid,
+                bookingDate: new Date().toLocaleDateString(),
 
-            productTitle: product.title,
-            bookingType: booking.bookingType,
-            startDate: booking.startDate,
-            endDate: booking.endDate,
-            totalDays: booking.totalDays,
+                productTitle: product.title,
+                bookingType: booking.bookingType,
+                startDate: booking.startDate,
+                endDate: booking.endDate,
+                totalDays: booking.totalDays,
 
-            basePrice: Number(booking.totalAmount),
-            discountAmount: Number(booking.discountAmount),
-            finalAmount,
+                basePrice: Number(booking.totalAmount),
+                discountAmount: Number(booking.discountAmount),
+                finalAmount,
 
-            advanceAmount,
-            remainingAmount,
+                advanceAmount,
+                remainingAmount,
 
-            requester: requesterInvoiceParty,
-            provider: providerInvoiceParty,
-        });
+                requester: requesterInvoiceParty,
+                provider: providerInvoiceParty,
+            });
 
-        const invoicePdf = await generateInvoicePdf(invoiceHtml);
+            const invoicePdf = await generateInvoicePdf(invoiceHtml);
 
-        /* ---------- EMAIL: REQUESTER ---------- */
-        await sendEmail({
-            to: requester.email,
-            subject: "Invoice & Booking Confirmed 🧾",
-            html: bookingConfirmedRequesterTemplate(
-                requester.businessName,
-                provider.businessName,
-                booking.uuid
-            ),
-            attachments: [
-                {
-                    filename: `Invoice-${booking.uuid}.pdf`,
-                    content: invoicePdf,
-                    contentType: "application/pdf",
-                },
-            ],
-        });
+            /* ---------- EMAIL: REQUESTER ---------- */
+            await sendEmail({
+                to: requester.email,
+                subject: "Invoice & Booking Confirmed 🧾",
+                html: bookingConfirmedRequesterTemplate(
+                    requester.businessName,
+                    provider.businessName,
+                    booking.uuid
+                ),
+                attachments: [
+                    {
+                        filename: `Invoice-${booking.uuid}.pdf`,
+                        content: invoicePdf,
+                        contentType: "application/pdf",
+                    },
+                ],
+            });
 
-        /* ---------- EMAIL: PROVIDER ---------- */
-        await sendEmail({
-            to: provider.email,
-            subject: "New Booking Confirmed 📅",
-            html: bookingConfirmedProviderTemplate(
-                provider.businessName,
-                requester.businessName
-            ),
-            attachments: [
-                {
-                    filename: `Invoice-${booking.uuid}.pdf`,
-                    content: invoicePdf,
-                    contentType: "application/pdf",
-                },
-            ],
-        });
+            /* ---------- EMAIL: PROVIDER ---------- */
+            await sendEmail({
+                to: provider.email,
+                subject: "New Booking Confirmed 📅",
+                html: bookingConfirmedProviderTemplate(
+                    provider.businessName,
+                    requester.businessName
+                ),
+                attachments: [
+                    {
+                        filename: `Invoice-${booking.uuid}.pdf`,
+                        content: invoicePdf,
+                        contentType: "application/pdf",
+                    },
+                ],
+            });
+        } catch (invoiceError) {
+            console.error("Invoice/Email error (non-blocking):", invoiceError);
+            // Payment is already confirmed, so we don't fail the request
+            // You could implement a retry mechanism or manual notification here
+        }
 
         return NextResponse.json({ success: true });
     } catch (err) {

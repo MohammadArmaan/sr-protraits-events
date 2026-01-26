@@ -155,93 +155,99 @@ export async function POST(req: NextRequest) {
         ]);
 
         /* ----------------------------------
-           8️⃣ INVOICE
+           8️⃣ INVOICE & EMAIL (NON-BLOCKING)
         ---------------------------------- */
-        const invoiceHtml = vendorInvoiceTemplate({
-            invoiceNumber: updatedBooking.uuid,
-            bookingDate: new Date().toLocaleDateString(),
+        try {
+            const invoiceHtml = vendorInvoiceTemplate({
+                invoiceNumber: updatedBooking.uuid,
+                bookingDate: new Date().toLocaleDateString(),
 
-            productTitle: updatedBooking.uuid,
-            bookingType: updatedBooking.bookingType,
-            startDate: updatedBooking.startDate,
-            endDate: updatedBooking.endDate,
-            totalDays: updatedBooking.totalDays,
+                productTitle: updatedBooking.uuid,
+                bookingType: updatedBooking.bookingType,
+                startDate: updatedBooking.startDate,
+                endDate: updatedBooking.endDate,
+                totalDays: updatedBooking.totalDays,
 
-            basePrice: Number(updatedBooking.totalAmount),
-            discountAmount: Number(updatedBooking.discountAmount),
-            finalAmount,
+                basePrice: Number(updatedBooking.totalAmount),
+                discountAmount: Number(updatedBooking.discountAmount),
+                finalAmount,
 
-            advanceAmount,
-            remainingAmount: 0,
+                advanceAmount,
+                remainingAmount: 0,
 
-            requester: {
-                name: requester.businessName,
-                email: requester.email,
-                phone: requester.phone,
-                address: requester.address,
-                profilePhoto: requester.profilePhoto,
-            },
-            provider: {
-                name: provider.businessName,
-                email: provider.email,
-                phone: provider.phone,
-                address: provider.address,
-                profilePhoto: provider.profilePhoto,
-            },
-        });
-
-        const invoicePdf = await generateInvoicePdf(invoiceHtml);
-
-        await sendEmail({
-            to: provider.email,
-            subject: "Booking Settled – Payment Completed ✅",
-            html: remainingPaymentCompletedTemplate(
-                provider.businessName,
-                updatedBooking.uuid
-            ),
-            attachments: [
-                {
-                    filename: `Invoice-${updatedBooking.uuid}.pdf`,
-                    content: invoicePdf,
-                    contentType: "application/pdf",
+                requester: {
+                    name: requester.businessName,
+                    email: requester.email,
+                    phone: requester.phone,
+                    address: requester.address,
+                    profilePhoto: requester.profilePhoto,
                 },
-            ],
-        });
+                provider: {
+                    name: provider.businessName,
+                    email: provider.email,
+                    phone: provider.phone,
+                    address: provider.address,
+                    profilePhoto: provider.profilePhoto,
+                },
+            });
 
-        /* ----------------------------------
-           8️⃣ FETCH PRODUCT AND SEND EMAIL TO REQUESTER
-        ---------------------------------- */
+            const invoicePdf = await generateInvoicePdf(invoiceHtml);
 
-        const [product] = await db
-            .select({
-                uuid: vendorProductsTable.uuid,
-            })
-            .from(vendorProductsTable)
-            .where(eq(vendorProductsTable.id, booking.vendorProductId));
+            await sendEmail({
+                to: provider.email,
+                subject: "Booking Settled – Payment Completed ✅",
+                html: remainingPaymentCompletedTemplate(
+                    provider.businessName,
+                    updatedBooking.uuid
+                ),
+                attachments: [
+                    {
+                        filename: `Invoice-${updatedBooking.uuid}.pdf`,
+                        content: invoicePdf,
+                        contentType: "application/pdf",
+                    },
+                ],
+            });
 
-        if (!product) {
-            return NextResponse.json(
-                { error: "Product not found" },
-                { status: 404 }
-            );
+            /* ----------------------------------
+               9️⃣ FETCH PRODUCT AND SEND EMAIL TO REQUESTER
+            ---------------------------------- */
+
+            const [product] = await db
+                .select({
+                    uuid: vendorProductsTable.uuid,
+                })
+                .from(vendorProductsTable)
+                .where(eq(vendorProductsTable.id, booking.vendorProductId));
+
+            if (!product) {
+                return NextResponse.json(
+                    { error: "Product not found" },
+                    { status: 404 }
+                );
+            }
+
+            await sendEmail({
+                to: requester.email,
+                subject: "Your Booking Is Completed – Share Your Experience 🌟",
+                html: requesterPaymentCompletedTemplate({
+                    requesterName: requester.businessName,
+                    bookingRef: updatedBooking.uuid,
+                    productUuid: product.uuid,
+                }),
+                attachments: [
+                    {
+                        filename: `Invoice-${updatedBooking.uuid}.pdf`,
+                        content: invoicePdf,
+                        contentType: "application/pdf",
+                    },
+                ],
+            });
+        } catch (invoiceError) {
+            console.error("Invoice/Email error (non-blocking):", invoiceError);
+            // Payment is already completed, so we don't fail the request
+            // You could implement a retry mechanism or manual notification here
         }
-
-        await sendEmail({
-            to: requester.email,
-            subject: "Your Booking Is Completed – Share Your Experience 🌟",
-            html: requesterPaymentCompletedTemplate({
-                requesterName: requester.businessName,
-                bookingRef: updatedBooking.uuid,
-                productUuid: product.uuid,
-            }),
-            attachments: [
-                {
-                    filename: `Invoice-${updatedBooking.uuid}.pdf`,
-                    content: invoicePdf,
-                    contentType: "application/pdf",
-                },
-            ],
-        });
 
         return NextResponse.json({ success: true });
     } catch (err) {
