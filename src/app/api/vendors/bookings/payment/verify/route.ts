@@ -1,4 +1,3 @@
-// src/app/api/vendors/bookings/payment/verify/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { db } from "@/config/db";
@@ -10,8 +9,11 @@ import { vendorsTable } from "@/config/vendorsSchema";
 import { vendorProductsTable } from "@/config/vendorProductsSchema";
 
 import { sendEmail } from "@/lib/sendEmail";
-import { vendorInvoiceTemplate } from "@/lib/invoice-templates/vendorInvoiceTemplate";
-import { generateInvoicePdf } from "@/lib/invoice-templates/generateInvoicePdf";
+import {
+    generateInvoicePdf,
+    InvoiceData,
+} from "@/lib/invoice-templates/generateInvoicePdf";
+
 import { bookingConfirmedRequesterTemplate } from "@/lib/email-templates/bookingConfirmedRequesterTemplate";
 import { bookingConfirmedProviderTemplate } from "@/lib/email-templates/bookingConfirmedProviderTemplate";
 
@@ -21,7 +23,7 @@ export async function POST(req: NextRequest) {
             await req.json();
 
         /* ---------- VERIFY SIGNATURE ---------- */
-        const body = razorpay_order_id + "|" + razorpay_payment_id;
+        const body = `${razorpay_order_id}|${razorpay_payment_id}`;
 
         const expectedSignature = crypto
             .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
@@ -67,7 +69,7 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        /* ---------- CONFIRM BOOKING (ADVANCE PAID) ---------- */
+        /* ---------- CONFIRM BOOKING ---------- */
         await db
             .update(vendorBookingsTable)
             .set({
@@ -77,31 +79,19 @@ export async function POST(req: NextRequest) {
             .where(eq(vendorBookingsTable.id, booking.id));
 
         /* ---------- PAYMENT MATH ---------- */
-        const advanceAmount = payment.amount / 100; // paise → INR
+        const advanceAmount = payment.amount / 100;
         const finalAmount = Number(booking.finalAmount);
         const remainingAmount = Math.max(finalAmount - advanceAmount, 0);
 
-        /* ---------- FETCH REQUESTER & PROVIDER ---------- */
+        /* ---------- FETCH PARTIES ---------- */
         const [[requester], [provider]] = await Promise.all([
             db
-                .select({
-                    businessName: vendorsTable.businessName,
-                    email: vendorsTable.email,
-                    phone: vendorsTable.phone,
-                    address: vendorsTable.address,
-                    profilePhoto: vendorsTable.profilePhoto,
-                })
+                .select()
                 .from(vendorsTable)
                 .where(eq(vendorsTable.id, booking.bookedByVendorId)),
 
             db
-                .select({
-                    businessName: vendorsTable.businessName,
-                    email: vendorsTable.email,
-                    phone: vendorsTable.phone,
-                    address: vendorsTable.address,
-                    profilePhoto: vendorsTable.profilePhoto,
-                })
+                .select()
                 .from(vendorsTable)
                 .where(eq(vendorsTable.id, booking.vendorId)),
         ]);
@@ -114,31 +104,11 @@ export async function POST(req: NextRequest) {
 
         /* ---------- INVOICE & EMAIL (NON-BLOCKING) ---------- */
         try {
-            const requesterInvoiceParty = {
-                name: requester.businessName,
-                email: requester.email,
-                phone: requester.phone,
-                address: requester.address,
-                profilePhoto: requester.profilePhoto,
-            };
-
-            const providerInvoiceParty = {
-                name: provider.businessName,
-                email: provider.email,
-                phone: provider.phone,
-                address: provider.address,
-                profilePhoto: provider.profilePhoto,
-            };
-
-            const invoiceHtml = vendorInvoiceTemplate({
+            const invoiceData: InvoiceData = {
                 invoiceNumber: booking.uuid,
-                bookingDate: new Date().toLocaleDateString(),
+                issuedAt: new Date(),
 
                 productTitle: product.title,
-                bookingType: booking.bookingType,
-                startDate: booking.startDate,
-                endDate: booking.endDate,
-                totalDays: booking.totalDays,
 
                 basePrice: Number(booking.totalAmount),
                 discountAmount: Number(booking.discountAmount),
@@ -147,11 +117,22 @@ export async function POST(req: NextRequest) {
                 advanceAmount,
                 remainingAmount,
 
-                requester: requesterInvoiceParty,
-                provider: providerInvoiceParty,
-            });
+                provider: {
+                    name: provider.businessName,
+                    email: provider.email,
+                    phone: provider.phone,
+                    address: provider.address,
+                },
 
-            const invoicePdf = await generateInvoicePdf(invoiceHtml);
+                requester: {
+                    name: requester.businessName,
+                    email: requester.email,
+                    phone: requester.phone,
+                    address: requester.address,
+                },
+            };
+
+            const invoicePdf = await generateInvoicePdf(invoiceData);
 
             /* ---------- EMAIL: REQUESTER ---------- */
             await sendEmail({
@@ -188,9 +169,10 @@ export async function POST(req: NextRequest) {
                 ],
             });
         } catch (invoiceError) {
-            console.error("Invoice/Email error (non-blocking):", invoiceError);
-            // Payment is already confirmed, so we don't fail the request
-            // You could implement a retry mechanism or manual notification here
+            console.error(
+                "Invoice/Email error (non-blocking):",
+                invoiceError
+            );
         }
 
         return NextResponse.json({ success: true });

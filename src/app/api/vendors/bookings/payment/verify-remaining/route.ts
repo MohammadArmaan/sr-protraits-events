@@ -8,13 +8,16 @@ import { eq } from "drizzle-orm";
 import { vendorPaymentsTable } from "@/config/vendorPaymentsSchema";
 import { vendorBookingsTable } from "@/config/vendorBookingsSchema";
 import { vendorsTable } from "@/config/vendorsSchema";
+import { vendorProductsTable } from "@/config/vendorProductsSchema";
 
 import { sendEmail } from "@/lib/sendEmail";
-import { generateInvoicePdf } from "@/lib/invoice-templates/generateInvoicePdf";
-import { vendorInvoiceTemplate } from "@/lib/invoice-templates/vendorInvoiceTemplate";
+import {
+    generateInvoicePdf,
+    InvoiceData
+} from "@/lib/invoice-templates/generateInvoicePdf";
+
 import { remainingPaymentCompletedTemplate } from "@/lib/email-templates/remainingPaymentCompletedTemplate";
 import { requesterPaymentCompletedTemplate } from "@/lib/email-templates/requesterPaymentCompletedTemplate";
-import { vendorProductsTable } from "@/config/vendorProductsSchema";
 
 export async function POST(req: NextRequest) {
     try {
@@ -60,8 +63,8 @@ export async function POST(req: NextRequest) {
         }
 
         /* ----------------------------------
-   3️⃣ FETCH BOOKING (STRICT & CORRECT)
----------------------------------- */
+           3️⃣ FETCH BOOKING
+        ---------------------------------- */
         const [booking] = await db
             .select()
             .from(vendorBookingsTable)
@@ -72,21 +75,15 @@ export async function POST(req: NextRequest) {
                 )
             );
 
-        if (!booking) {
+        if (!booking || !booking.paymentId) {
             return NextResponse.json(
-                { error: "Booking not found" },
-                { status: 404 }
-            );
-        }
-        if (!booking.paymentId) {
-            return NextResponse.json(
-                { error: "Advance payment missing" },
+                { error: "Booking or advance payment missing" },
                 { status: 400 }
             );
         }
 
         /* ----------------------------------
-           4️⃣ FETCH ADVANCE PAYMENT (ONLY THIS BOOKING)
+           4️⃣ FETCH ADVANCE PAYMENT
         ---------------------------------- */
         const [advancePayment] = await db
             .select()
@@ -101,7 +98,7 @@ export async function POST(req: NextRequest) {
         }
 
         /* ----------------------------------
-           5️⃣ RECONCILE USING BOOKING FIELDS (FINAL)
+           5️⃣ RECONCILE
         ---------------------------------- */
         const advanceAmount = advancePayment.amount / 100;
         const remainingAmount = remainingPayment.amount / 100;
@@ -112,14 +109,6 @@ export async function POST(req: NextRequest) {
             Number(booking.totalAmount) - Number(booking.discountAmount);
 
         if (Number(totalPaid.toFixed(2)) !== Number(finalAmount.toFixed(2))) {
-            console.error("❌ Settlement mismatch", {
-                bookingUuid: booking.uuid,
-                advanceAmount,
-                remainingAmount,
-                totalPaid,
-                finalAmount,
-            });
-
             return NextResponse.json(
                 { error: "Payment mismatch. Settlement aborted." },
                 { status: 400 }
@@ -147,7 +136,6 @@ export async function POST(req: NextRequest) {
                 .select()
                 .from(vendorsTable)
                 .where(eq(vendorsTable.id, booking.bookedByVendorId)),
-
             db
                 .select()
                 .from(vendorsTable)
@@ -158,15 +146,11 @@ export async function POST(req: NextRequest) {
            8️⃣ INVOICE & EMAIL (NON-BLOCKING)
         ---------------------------------- */
         try {
-            const invoiceHtml = vendorInvoiceTemplate({
+            const invoiceData: InvoiceData = {
                 invoiceNumber: updatedBooking.uuid,
-                bookingDate: new Date().toLocaleDateString(),
+                issuedAt: new Date(),
 
                 productTitle: updatedBooking.uuid,
-                bookingType: updatedBooking.bookingType,
-                startDate: updatedBooking.startDate,
-                endDate: updatedBooking.endDate,
-                totalDays: updatedBooking.totalDays,
 
                 basePrice: Number(updatedBooking.totalAmount),
                 discountAmount: Number(updatedBooking.discountAmount),
@@ -175,23 +159,21 @@ export async function POST(req: NextRequest) {
                 advanceAmount,
                 remainingAmount: 0,
 
-                requester: {
-                    name: requester.businessName,
-                    email: requester.email,
-                    phone: requester.phone,
-                    address: requester.address,
-                    profilePhoto: requester.profilePhoto,
-                },
                 provider: {
                     name: provider.businessName,
                     email: provider.email,
                     phone: provider.phone,
                     address: provider.address,
-                    profilePhoto: provider.profilePhoto,
                 },
-            });
+                requester: {
+                    name: requester.businessName,
+                    email: requester.email,
+                    phone: requester.phone,
+                    address: requester.address,
+                },
+            };
 
-            const invoicePdf = await generateInvoicePdf(invoiceHtml);
+            const invoicePdf = await generateInvoicePdf(invoiceData);
 
             await sendEmail({
                 to: provider.email,
@@ -209,44 +191,35 @@ export async function POST(req: NextRequest) {
                 ],
             });
 
-            /* ----------------------------------
-               9️⃣ FETCH PRODUCT AND SEND EMAIL TO REQUESTER
-            ---------------------------------- */
-
             const [product] = await db
-                .select({
-                    uuid: vendorProductsTable.uuid,
-                })
+                .select({ uuid: vendorProductsTable.uuid })
                 .from(vendorProductsTable)
                 .where(eq(vendorProductsTable.id, booking.vendorProductId));
 
-            if (!product) {
-                return NextResponse.json(
-                    { error: "Product not found" },
-                    { status: 404 }
-                );
+            if (product) {
+                await sendEmail({
+                    to: requester.email,
+                    subject:
+                        "Your Booking Is Completed – Share Your Experience 🌟",
+                    html: requesterPaymentCompletedTemplate({
+                        requesterName: requester.businessName,
+                        bookingRef: updatedBooking.uuid,
+                        productUuid: product.uuid,
+                    }),
+                    attachments: [
+                        {
+                            filename: `Invoice-${updatedBooking.uuid}.pdf`,
+                            content: invoicePdf,
+                            contentType: "application/pdf",
+                        },
+                    ],
+                });
             }
-
-            await sendEmail({
-                to: requester.email,
-                subject: "Your Booking Is Completed – Share Your Experience 🌟",
-                html: requesterPaymentCompletedTemplate({
-                    requesterName: requester.businessName,
-                    bookingRef: updatedBooking.uuid,
-                    productUuid: product.uuid,
-                }),
-                attachments: [
-                    {
-                        filename: `Invoice-${updatedBooking.uuid}.pdf`,
-                        content: invoicePdf,
-                        contentType: "application/pdf",
-                    },
-                ],
-            });
         } catch (invoiceError) {
-            console.error("Invoice/Email error (non-blocking):", invoiceError);
-            // Payment is already completed, so we don't fail the request
-            // You could implement a retry mechanism or manual notification here
+            console.error(
+                "Invoice/Email error (non-blocking):",
+                invoiceError
+            );
         }
 
         return NextResponse.json({ success: true });
