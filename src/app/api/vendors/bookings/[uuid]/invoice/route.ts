@@ -1,4 +1,3 @@
-// src/app/api/vendors/bookings/[uuid]/invoice/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { db } from "@/config/db";
@@ -8,20 +7,23 @@ import { vendorBookingsTable } from "@/config/vendorBookingsSchema";
 import { vendorsTable } from "@/config/vendorsSchema";
 import { vendorProductsTable } from "@/config/vendorProductsSchema";
 
-import { vendorInvoiceTemplate } from "@/lib/invoice-templates/vendorInvoiceTemplate";
-import { generateInvoicePdf } from "@/lib/invoice-templates/generateInvoicePdf";
+import {
+    generateInvoicePdf,
+    InvoiceData,
+} from "@/lib/invoice-templates/generateInvoicePdf";
 
 export async function GET(
     req: NextRequest,
-    context: { params: Promise<{ uuid: string }> }
+    context: { params: Promise<{ uuid: string }> },
 ) {
     try {
         const { uuid } = await context.params;
+
         const token = req.cookies.get("vendor_token")?.value;
         if (!token) {
             return NextResponse.json(
                 { error: "Unauthorized" },
-                { status: 401 }
+                { status: 401 },
             );
         }
 
@@ -38,7 +40,7 @@ export async function GET(
         if (!booking) {
             return NextResponse.json(
                 { error: "Booking not found" },
-                { status: 404 }
+                { status: 404 },
             );
         }
 
@@ -50,41 +52,22 @@ export async function GET(
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        if (!booking.status) {
-            return NextResponse.json(
-                { error: "Booking status not available" },
-                { status: 400 }
-            );
-        }
-
         if (booking.status !== "CONFIRMED" && booking.status !== "COMPLETED") {
             return NextResponse.json(
                 { error: "Invoice not available yet" },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
-        /* ---------- FETCH REQUESTER & PROVIDER ---------- */
+        /* ---------- FETCH PARTIES ---------- */
         const [[requester], [provider]] = await Promise.all([
             db
-                .select({
-                    businessName: vendorsTable.businessName,
-                    email: vendorsTable.email,
-                    phone: vendorsTable.phone,
-                    address: vendorsTable.address,
-                    profilePhoto: vendorsTable.profilePhoto,
-                })
+                .select()
                 .from(vendorsTable)
                 .where(eq(vendorsTable.id, booking.bookedByVendorId)),
 
             db
-                .select({
-                    businessName: vendorsTable.businessName,
-                    email: vendorsTable.email,
-                    phone: vendorsTable.phone,
-                    address: vendorsTable.address,
-                    profilePhoto: vendorsTable.profilePhoto,
-                })
+                .select()
                 .from(vendorsTable)
                 .where(eq(vendorsTable.id, booking.vendorId)),
         ]);
@@ -96,53 +79,46 @@ export async function GET(
             .where(eq(vendorProductsTable.id, booking.vendorProductId));
 
         /* ---------- PAYMENT MATH ---------- */
-        const totalAmount = Number(booking.finalAmount);
+        const finalAmount = Number(booking.finalAmount);
         const advanceAmount = Number(booking.advanceAmount ?? 0);
         const remainingAmount =
             booking.status === "COMPLETED"
                 ? 0
-                : Math.max(totalAmount - advanceAmount, 0);
+                : Math.max(finalAmount - advanceAmount, 0);
 
-        /* ---------- INVOICE HTML ---------- */
-        const invoiceHtml = vendorInvoiceTemplate({
+        /* ---------- BUILD INVOICE DATA ---------- */
+        const invoiceData: InvoiceData = {
             invoiceNumber: booking.uuid,
-            bookingDate: new Date().toLocaleDateString(),
+            issuedAt: new Date(),
 
             productTitle: product.title,
-            bookingType: booking.bookingType,
-            startDate: booking.startDate,
-            endDate: booking.endDate,
-            totalDays: booking.totalDays,
 
             basePrice: Number(booking.totalAmount),
             discountAmount: Number(booking.discountAmount),
-            finalAmount: totalAmount,
+            finalAmount,
 
             advanceAmount,
             remainingAmount,
+
+            provider: {
+                name: provider.businessName,
+                email: provider.email,
+                phone: provider.phone,
+                address: provider.address,
+            },
 
             requester: {
                 name: requester.businessName,
                 email: requester.email,
                 phone: requester.phone,
                 address: requester.address,
-                profilePhoto: requester.profilePhoto,
             },
-            provider: {
-                name: provider.businessName,
-                email: provider.email,
-                phone: provider.phone,
-                address: provider.address,
-                profilePhoto: provider.profilePhoto,
-            },
-        });
+        };
 
-        const pdfBuffer = await generateInvoicePdf(invoiceHtml);
+        const pdfBuffer = await generateInvoicePdf(invoiceData);
 
         /* ---------- RETURN PDF ---------- */
-        const pdfBytes = new Uint8Array(pdfBuffer);
-
-        return new NextResponse(pdfBytes, {
+        return new NextResponse(new Uint8Array(pdfBuffer), {
             headers: {
                 "Content-Type": "application/pdf",
                 "Content-Disposition": `attachment; filename=Invoice-${booking.uuid}.pdf`,
@@ -152,7 +128,7 @@ export async function GET(
         console.error("Invoice generation error:", err);
         return NextResponse.json(
             { error: "Failed to generate invoice" },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }
