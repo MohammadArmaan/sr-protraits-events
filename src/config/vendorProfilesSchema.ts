@@ -13,28 +13,42 @@ export const vendorProfileEdits = pgTable("vendor_profile_edits", {
 
     vendorId: integer()
         .notNull()
-        .references(() => vendorsTable.id),
+        .references(() => vendorsTable.id, { onDelete: "cascade" }),
 
-    changes: json("changes").$type<{
+    profileChanges: json("profileChanges").$type<{
         fullName?: string;
         occupation?: string;
         businessName?: string;
         phone?: string;
         address?: string;
         businessDescription?: string;
-        businessPhotos?: string[]; 
+        gstNumber?: string;
+        yearsOfExperience?: number;
+        successfulEventsCompleted?: number;
+        demandPrice?: number;
     }>(),
+
+    catalogChanges: json("catalogChanges").$type<
+        {
+            catalogId?: number;
+            action: "ADD" | "UPDATE" | "DELETE";
+            payload: {
+                title?: string;
+                description?: string;
+                categoryId?: number;
+                subCategoryId?: number;
+                addedImages?: string[];
+                removedImageIds?: number[];
+            };
+        }[]
+    >(),
 
     newProfilePhotoUrl: varchar("newProfilePhotoUrl", { length: 500 }),
     oldProfilePhotoUrl: varchar("oldProfilePhotoUrl", { length: 500 }),
 
-    newBusinessPhotos: json("newBusinessPhotos").$type<string[]>().default([]),
-    oldBusinessPhotos: json("oldBusinessPhotos").$type<string[]>().default([]),
-    removedBusinessPhotos: json("removedBusinessPhotos").$type<string[]>().default([]),
-
     status: varchar("status", { length: 50 }).default("PENDING"),
+    rejectionReason: varchar("rejectionReason", { length: 500 }),
 
-    // Admin Verification
     approvedByAdminId: integer().references(() => adminsTable.id),
     rejectedByAdminId: integer().references(() => adminsTable.id),
     reviewedAt: timestamp("reviewedAt", { withTimezone: true }),

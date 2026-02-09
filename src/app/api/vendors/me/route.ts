@@ -1,36 +1,73 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
 import { db } from "@/config/db";
 import { vendorsTable } from "@/config/vendorsSchema";
-import { eq } from "drizzle-orm";
+import { vendorCatalogsTable } from "@/config/vendorCatalogSchema";
+import { vendorCatalogImagesTable } from "@/config/vendorCatalogImagesSchema";
+import { eq, inArray } from "drizzle-orm";
+import jwt from "jsonwebtoken";
 
 export async function GET(req: NextRequest) {
     try {
         const token = req.cookies.get("vendor_token")?.value;
+        if (!token) return NextResponse.json(null, { status: 200 });
 
-        if (!token) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
+            vendorId: number;
+        };
 
-        let decoded: { vendorId: number };
-        try {
-            decoded = jwt.verify(token, process.env.JWT_SECRET!) as { vendorId: number };
-        } catch {
-            return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-        }
-
+        // -----------------------
+        // Fetch vendor
+        // -----------------------
         const [vendor] = await db
             .select()
             .from(vendorsTable)
             .where(eq(vendorsTable.id, decoded.vendorId));
 
-        if (!vendor) {
-            return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
-        }
+        if (!vendor) return NextResponse.json(null, { status: 200 });
 
-        return NextResponse.json({ success: true, vendor });
-    } catch (error) {
-        console.error("Vendor fetch error:", error);
-        return NextResponse.json({ error: "Server error" }, { status: 500 });
+        // -----------------------
+        // Fetch catalogs
+        // -----------------------
+        const catalogs = await db
+            .select()
+            .from(vendorCatalogsTable)
+            .where(eq(vendorCatalogsTable.vendorId, vendor.id));
+
+        // -----------------------
+        // Fetch catalog images
+        // -----------------------
+        const catalogIds = catalogs.map((c) => c.id);
+
+        const images =
+    catalogIds.length > 0
+        ? await db
+              .select()
+              .from(vendorCatalogImagesTable)
+              .where(
+                  inArray(
+                      vendorCatalogImagesTable.catalogId,
+                      catalogIds
+                  )
+              )
+        : [];
+
+        // -----------------------
+        // Merge catalogs + images
+        // -----------------------
+        const catalogsWithImages = catalogs.map((catalog) => ({
+            ...catalog,
+            images: images.filter((img) => img.catalogId === catalog.id),
+        }));
+
+        return NextResponse.json(
+            {
+                vendor,
+                catalogs: catalogsWithImages,
+            },
+            { status: 200 },
+        );
+    } catch (err) {
+        console.error("Get vendor error:", err);
+        return NextResponse.json(null, { status: 200 });
     }
 }

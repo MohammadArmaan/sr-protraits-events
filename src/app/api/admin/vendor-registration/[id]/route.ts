@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/config/db";
 import { vendorsTable } from "@/config/vendorsSchema";
 import { vendorBankDetailsTable } from "@/config/vendorBankDetailsSchema";
-import { eq } from "drizzle-orm";
+import { vendorCatalogsTable } from "@/config/vendorCatalogSchema";
+import { vendorCatalogImagesTable } from "@/config/vendorCatalogImagesSchema";
+import { eq, inArray } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 
 export async function GET(
     req: NextRequest,
-    context: { params: Promise<{ id: string }> }
+    context: { params: Promise<{ id: string }> },
 ) {
     try {
         const { id } = await context.params;
@@ -20,7 +22,9 @@ export async function GET(
             );
         }
 
-        // 🔐 Validate admin token
+        /* ----------------------------- */
+        /* 🔐 Validate Admin Token */
+        /* ----------------------------- */
         const token = req.cookies.get("admin_token")?.value;
         if (!token) {
             return NextResponse.json(
@@ -41,7 +45,9 @@ export async function GET(
             );
         }
 
-        // ✅ Fetch vendor
+        /* ----------------------------- */
+        /* ✅ Fetch Vendor */
+        /* ----------------------------- */
         const [vendor] = await db
             .select({
                 id: vendorsTable.id,
@@ -53,7 +59,15 @@ export async function GET(
                 address: vendorsTable.address,
                 businessDescription: vendorsTable.businessDescription,
                 profilePhoto: vendorsTable.profilePhoto,
-                businessPhotos: vendorsTable.businessPhotos,
+
+                // ✅ NEW FIELDS
+                yearsOfExperience: vendorsTable.yearsOfExperience,
+                successfulEventsCompleted:
+                    vendorsTable.successfulEventsCompleted,
+                gstNumber: vendorsTable.gstNumber,
+                points: vendorsTable.points,
+                demandPrice: vendorsTable.demandPrice,
+
                 status: vendorsTable.status,
                 isApproved: vendorsTable.isApproved,
                 approvedAt: vendorsTable.approvedAt,
@@ -69,7 +83,9 @@ export async function GET(
             );
         }
 
-        // ✅ Fetch bank details (nullable)
+        /* ----------------------------- */
+        /* ✅ Fetch Bank Details */
+        /* ----------------------------- */
         const [bankDetails] = await db
             .select({
                 accountHolderName: vendorBankDetailsTable.accountHolderName,
@@ -84,12 +100,61 @@ export async function GET(
             .from(vendorBankDetailsTable)
             .where(eq(vendorBankDetailsTable.vendorId, vendorId));
 
+        /* ----------------------------- */
+        /* ✅ Fetch Catalogs */
+        /* ----------------------------- */
+        const catalogs = await db
+            .select({
+                id: vendorCatalogsTable.id,
+                title: vendorCatalogsTable.title,
+                description: vendorCatalogsTable.description,
+                categoryId: vendorCatalogsTable.categoryId,
+                subCategoryId: vendorCatalogsTable.subCategoryId,
+                createdAt: vendorCatalogsTable.createdAt,
+            })
+            .from(vendorCatalogsTable)
+            .where(eq(vendorCatalogsTable.vendorId, vendorId));
+
+        /* ----------------------------- */
+        /* ✅ Fetch Catalog Images */
+        /* ----------------------------- */
+        const catalogIds = catalogs.map((c) => c.id);
+
+        const catalogImages =
+            catalogIds.length === 0
+                ? []
+                : await db
+                      .select({
+                          id: vendorCatalogImagesTable.id,
+                          catalogId: vendorCatalogImagesTable.catalogId,
+                          imageUrl: vendorCatalogImagesTable.imageUrl,
+                      })
+                      .from(vendorCatalogImagesTable)
+                      .where(
+                          inArray(
+                              vendorCatalogImagesTable.catalogId,
+                              catalogIds,
+                          ),
+                      );
+
+        /* ----------------------------- */
+        /* 🔁 Attach images to catalogs */
+        /* ----------------------------- */
+        const catalogsWithImages = catalogs.map((catalog) => ({
+            ...catalog,
+            images: catalogImages.filter((img) => img.catalogId === catalog.id),
+        }));
+
+        /* ----------------------------- */
+        /* ✅ Final Response */
+        /* ----------------------------- */
         return NextResponse.json(
             {
                 success: true,
                 vendor: {
                     ...vendor,
                     bankDetails: bankDetails ?? null,
+                    catalogs: catalogsWithImages,
                 },
             },
             { status: 200 },

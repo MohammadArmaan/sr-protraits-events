@@ -36,6 +36,7 @@ const steps = [
 export default function RegistrationPage() {
     const [currentStep, setCurrentStep] = useState(1);
     const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+    const [catalogTitle, setCatalogTitle] = useState("");
     const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -48,12 +49,20 @@ export default function RegistrationPage() {
         phone: "",
         address: "",
         email: "",
+        yearsOfExperience: 0,
+        successfulEventsCompleted: 0,
+        demandPrice: 0,
+        gstNumber: "",
         password: "",
         confirmPassword: "",
         otp: "",
         businessDescription: "",
+        profilePhoto: null as File | null,
         photos: [] as string[],
+        catalogTitle: "",
         verified: false,
+        hasAcceptedTerms: false,
+        termsAcceptedAt: null as Date | null,
     });
 
     /** ---------------- VALIDATE STEP ---------------- */
@@ -66,10 +75,20 @@ export default function RegistrationPage() {
                     !formData.phone.trim() ||
                     !formData.address.trim() ||
                     !formData.email.trim() ||
+                    formData.yearsOfExperience < 0 ||
+                    formData.successfulEventsCompleted < 0 ||
+                    formData.demandPrice < 0 ||
                     !formData.password.trim() ||
-                    !formData.confirmPassword.trim()
+                    !formData.confirmPassword.trim() ||
+                    !formData.profilePhoto
                 ) {
                     toast.error("Please fill all required fields");
+                    return false;
+                }
+                if (!formData.hasAcceptedTerms) {
+                    toast.error(
+                        "You must accept the Terms & Conditions to continue",
+                    );
                     return false;
                 }
                 if (formData.password !== formData.confirmPassword) {
@@ -88,24 +107,64 @@ export default function RegistrationPage() {
         if (!validateStep()) return;
 
         if (currentStep === 1) {
-            const payload: VendorBasicInfo = {
-                fullName: formData.fullName,
-                businessName: formData.fullName,
-                occupation: formData.occupation,
-                phone: formData.phone,
-                address: formData.address,
-                email: formData.email,
-                password: formData.password,
-                confirmPassword: formData.confirmPassword,
-            };
-
             try {
+                if (!formData.profilePhoto) {
+                    toast.error("Profile photo is required");
+                    return;
+                }
+
                 setLoading(true);
-                const result = await submitBasicInfo(payload);
-                sessionStorage.setItem("onboardingToken", result.onboardingToken);
+
+                const form = new FormData();
+
+                form.append("fullName", formData.fullName);
+                form.append("businessName", formData.businessName || "");
+                form.append("occupation", formData.occupation);
+                form.append("phone", formData.phone);
+                form.append("address", formData.address);
+                form.append("email", formData.email);
+
+                form.append(
+                    "yearsOfExperience",
+                    String(formData.yearsOfExperience),
+                );
+                form.append(
+                    "successfulEventsCompleted",
+                    String(formData.successfulEventsCompleted),
+                );
+                form.append("demandPrice", String(formData.demandPrice));
+
+                if (formData.gstNumber) {
+                    form.append("gstNumber", formData.gstNumber);
+                }
+
+                form.append("password", formData.password);
+                form.append("confirmPassword", formData.confirmPassword);
+
+                // 🔥 FILE MUST BE APPENDED LIKE THIS
+                form.append("profilePhoto", formData.profilePhoto);
+
+                form.append(
+                    "hasAcceptedTerms",
+                    String(formData.hasAcceptedTerms),
+                );
+
+                if (formData.termsAcceptedAt) {
+                    form.append(
+                        "termsAcceptedAt",
+                        formData.termsAcceptedAt.toISOString(),
+                    );
+                }
+
+                const result = await submitBasicInfo(form);
+
+                sessionStorage.setItem(
+                    "onboardingToken",
+                    result.onboardingToken,
+                );
                 toast.success("OTP sent to your email!");
                 setCurrentStep(2);
-            } catch (err: unknown) {
+            } catch (err) {
                 if (err instanceof Error) toast.error(err.message);
             } finally {
                 setLoading(false);
@@ -125,7 +184,9 @@ export default function RegistrationPage() {
         if (currentStep === 3) {
             try {
                 setLoading(true);
-                await submitDescription({ businessDescription: formData.businessDescription });
+                await submitDescription({
+                    businessDescription: formData.businessDescription,
+                });
                 toast.success("Description saved!");
                 setCurrentStep(4);
             } catch (err: unknown) {
@@ -143,7 +204,14 @@ export default function RegistrationPage() {
                     toast.error("Please upload at least one image");
                     return;
                 }
-                await submitPhotos({ photos: photoFiles });
+                if (!formData.catalogTitle.trim()) {
+                    toast.error("Catalog title is required");
+                    return false;
+                }
+                await submitPhotos({
+                    photos: photoFiles,
+                    catalogTitle: formData.catalogTitle,
+                });
                 toast.success("Photos uploaded!");
                 setCurrentStep(5);
             } catch (err) {
@@ -174,7 +242,10 @@ export default function RegistrationPage() {
 
                     <p className="text-muted-foreground">
                         Already a vendor?
-                        <Link href="/vendor/sign-in" className="text-primary hover:underline ml-1 hover:text-primary/80">
+                        <Link
+                            href="/vendor/sign-in"
+                            className="text-primary hover:underline ml-1 hover:text-primary/80"
+                        >
                             Sign In
                         </Link>
                     </p>
@@ -185,24 +256,37 @@ export default function RegistrationPage() {
                 <Card className="border-border shadow-lg rounded-2xl bg-card text-card-foreground">
                     <CardHeader>
                         <CardTitle>{steps[currentStep - 1].title}</CardTitle>
-                        <CardDescription>{steps[currentStep - 1].description}</CardDescription>
+                        <CardDescription>
+                            {steps[currentStep - 1].description}
+                        </CardDescription>
                     </CardHeader>
 
                     <CardContent className="space-y-6">
-
                         {currentStep === 1 && (
-                            <BasicInfo formData={formData} setFormData={setFormData} />
+                            <BasicInfo
+                                formData={formData}
+                                setFormData={setFormData}
+                            />
                         )}
 
                         {currentStep === 2 && (
-                            <VerifyEmail formData={formData} setFormData={setFormData} />
+                            <VerifyEmail
+                                formData={formData}
+                                setFormData={setFormData}
+                            />
                         )}
 
                         {currentStep === 3 && (
                             <Description
-                                formData={{ businessDescription: formData.businessDescription }}
+                                formData={{
+                                    businessDescription:
+                                        formData.businessDescription,
+                                }}
                                 setFormData={(data) =>
-                                    setFormData((prev) => ({ ...prev, ...data }))
+                                    setFormData((prev) => ({
+                                        ...prev,
+                                        ...data,
+                                    }))
                                 }
                             />
                         )}
@@ -213,6 +297,13 @@ export default function RegistrationPage() {
                                 previews={photoPreviews}
                                 setFiles={setPhotoFiles}
                                 setPreviews={setPhotoPreviews}
+                                catalogTitle={formData.catalogTitle}
+                                setCatalogTitle={(value) =>
+                                    setFormData((prev) => ({
+                                        ...prev,
+                                        catalogTitle: value,
+                                    }))
+                                }
                             />
                         )}
 

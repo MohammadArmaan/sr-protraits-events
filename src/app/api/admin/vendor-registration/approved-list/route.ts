@@ -19,19 +19,10 @@ export async function GET(req: NextRequest) {
             );
         }
 
-        let decoded: { adminId: number; role: string };
-
-        try {
-            decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-                adminId: number;
-                role: string;
-            };
-        } catch {
-            return NextResponse.json(
-                { error: "Invalid admin token" },
-                { status: 401 }
-            );
-        }
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
+            adminId: number;
+            role: string;
+        };
 
         if (decoded.role !== "admin") {
             return NextResponse.json(
@@ -41,23 +32,22 @@ export async function GET(req: NextRequest) {
         }
 
         // -----------------------------
-        // Fetch All Vendors Awaiting Activation
+        // Fetch Vendors Awaiting Activation
+        // (Catalog created, waiting admin approval)
         // -----------------------------
-        const activationList = await db
+        const vendors = await db
             .select({
                 vendorId: vendorsTable.id,
                 fullName: vendorsTable.fullName,
                 businessName: vendorsTable.businessName,
                 email: vendorsTable.email,
                 profilePhoto: vendorsTable.profilePhoto,
-                businessPhotos: vendorsTable.businessPhotos,
 
+                currentStep: vendorsTable.currentStep,
                 status: vendorsTable.status,
-                activationToken: vendorsTable.activationToken,
-                activationTokenExpires: vendorsTable.activationTokenExpires,
+
                 createdAt: vendorsTable.createdAt,
                 approvedAt: vendorsTable.approvedAt,
-
                 approvedBy: adminsTable.fullName,
             })
             .from(vendorsTable)
@@ -65,17 +55,11 @@ export async function GET(req: NextRequest) {
                 adminsTable,
                 eq(vendorsTable.approvedByAdminId, adminsTable.id)
             )
-            .where(eq(vendorsTable.status, "AWAITING_ACTIVATION"))
+            .where(eq(vendorsTable.currentStep, 4))
             .orderBy(vendorsTable.createdAt);
 
-        // Ensure photos array never breaks UI
-        const safeList = activationList.map((v) => ({
-            ...v,
-            businessPhotos: v.businessPhotos ?? [],
-        }));
-
         return NextResponse.json(
-            { success: true, vendors: safeList },
+            { success: true, vendors },
             { status: 200 }
         );
     } catch (error) {

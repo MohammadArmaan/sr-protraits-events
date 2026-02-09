@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/config/db";
 import { vendorsTable } from "@/config/vendorsSchema";
 import { adminsTable } from "@/config/adminsSchema";
-import { eq } from "drizzle-orm";
+import { vendorCatalogsTable } from "@/config/vendorCatalogSchema";
+import { vendorCatalogImagesTable } from "@/config/vendorCatalogImagesSchema";
+import { eq, inArray } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 
 export async function GET(req: NextRequest) {
@@ -15,7 +17,7 @@ export async function GET(req: NextRequest) {
         if (!token) {
             return NextResponse.json(
                 { error: "Unauthorized: Admin token missing" },
-                { status: 401 }
+                { status: 401 },
             );
         }
 
@@ -29,60 +31,99 @@ export async function GET(req: NextRequest) {
         } catch {
             return NextResponse.json(
                 { error: "Invalid admin token" },
-                { status: 401 }
+                { status: 401 },
             );
         }
 
         if (decoded.role !== "admin") {
             return NextResponse.json(
                 { error: "Access denied. Admins only." },
-                { status: 403 }
+                { status: 403 },
             );
         }
 
         // -----------------------------
-        // Fetch All Vendors Awaiting Activation
+        // Fetch Vendors Ready for Activation
         // -----------------------------
-        const activationList = await db
+        const vendors = await db
             .select({
                 vendorId: vendorsTable.id,
                 fullName: vendorsTable.fullName,
                 businessName: vendorsTable.businessName,
                 email: vendorsTable.email,
                 profilePhoto: vendorsTable.profilePhoto,
-                businessPhotos: vendorsTable.businessPhotos,
-
                 status: vendorsTable.status,
-                activationToken: vendorsTable.activationToken,
-                activationTokenExpires: vendorsTable.activationTokenExpires,
+                currentStep: vendorsTable.currentStep,
                 createdAt: vendorsTable.createdAt,
                 approvedAt: vendorsTable.approvedAt,
-
                 approvedBy: adminsTable.fullName,
             })
             .from(vendorsTable)
             .leftJoin(
                 adminsTable,
-                eq(vendorsTable.approvedByAdminId, adminsTable.id)
+                eq(vendorsTable.approvedByAdminId, adminsTable.id),
             )
-            .where(eq(vendorsTable.status, "BUSINESS_PHOTOS_UPLOADED"))
+            .where(eq(vendorsTable.currentStep, 4)) // ✅ Catalog created
             .orderBy(vendorsTable.createdAt);
 
-        // Ensure photos array never breaks UI
-        const safeList = activationList.map((v) => ({
+        // -----------------------------
+        // Fetch catalogs + images per vendor
+        // -----------------------------
+        const vendorIds = vendors.map((v) => v.vendorId);
+
+        const catalogs = vendorIds.length
+            ? await db
+                  .select({
+                      catalogId: vendorCatalogsTable.id,
+                      vendorId: vendorCatalogsTable.vendorId,
+                      title: vendorCatalogsTable.title,
+                      imageUrl: vendorCatalogImagesTable.imageUrl,
+                  })
+                  .from(vendorCatalogsTable)
+                  .leftJoin(
+                      vendorCatalogImagesTable,
+                      eq(
+                          vendorCatalogsTable.id,
+                          vendorCatalogImagesTable.catalogId,
+                      ),
+                  )
+                  .where(inArray(vendorCatalogsTable.vendorId, vendorIds))
+            : [];
+
+        // -----------------------------
+        // Group catalogs by vendor
+        // -----------------------------
+        const catalogMap = new Map<number, any[]>();
+
+        catalogs.forEach((c) => {
+            if (!catalogMap.has(c.vendorId)) {
+                catalogMap.set(c.vendorId, []);
+            }
+
+            catalogMap.get(c.vendorId)!.push({
+                catalogId: c.catalogId,
+                title: c.title,
+                imageUrl: c.imageUrl,
+            });
+        });
+
+        // -----------------------------
+        // Final response
+        // -----------------------------
+        const response = vendors.map((v) => ({
             ...v,
-            businessPhotos: v.businessPhotos ?? [],
+            catalogs: catalogMap.get(v.vendorId) ?? [],
         }));
 
         return NextResponse.json(
-            { success: true, vendors: safeList },
-            { status: 200 }
+            { success: true, vendors: response },
+            { status: 200 },
         );
     } catch (error) {
         console.error("Activation list fetch error:", error);
         return NextResponse.json(
             { error: "Server error fetching activation list" },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }

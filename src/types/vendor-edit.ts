@@ -5,5 +5,9 @@ export type VendorEditableFields = {
     phone?: string;
     address?: string;
     businessDescription?: string;
-    businessPhotos?: string[];
+
+    yearsOfExperience?: number;
+    successfulEventsCompleted?: number;
+
+    gstNumber?: string;
 };

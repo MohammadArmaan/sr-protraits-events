@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/config/db";
+import { vendorsTable } from "@/config/vendorsSchema";
+import { vendorProfileEdits } from "@/config/vendorProfilesSchema";
 import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { vendorsTable } from "@/config/vendorsSchema";
-import { vendorProfileEdits } from "@/config/vendorProfilesSchema";
-import { VendorEditableFields } from "@/types/vendor-edit";
 import crypto from "crypto";
+
+/* -------------------- REQUIRED FOR FILE UPLOAD -------------------- */
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/* ------------------------------------------------------------------ */
+/*                               S3                                   */
+/* ------------------------------------------------------------------ */
 
 const s3 = new S3Client({
     region: process.env.AWS_REGION!,
@@ -16,178 +23,187 @@ const s3 = new S3Client({
     },
 });
 
+/* ------------------------------------------------------------------ */
+/*                               POST                                 */
+/* ------------------------------------------------------------------ */
+
 export async function POST(req: NextRequest) {
     try {
+        console.log("🔥 PROFILE EDIT API HIT");
+
         const form = await req.formData();
 
-        const token = req.cookies.get("vendor_token")?.value;
-        if (!token)
-            return NextResponse.json(
-                { error: "Missing token" },
-                { status: 401 },
-            );
+        console.log("FORM KEYS:", [...form.keys()]);
 
-        // Decode vendor token
-        let decoded: { vendorId: number };
-        try {
-            decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-                vendorId: number;
-            };
-        } catch {
-            return NextResponse.json(
-                { error: "Invalid or expired token" },
-                { status: 401 },
-            );
+        /* ----------------------------- AUTH ----------------------------- */
+
+        const token = req.cookies.get("vendor_token")?.value;
+        if (!token) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
+            vendorId: number;
+        };
 
         const vendorId = decoded.vendorId;
 
-        // Fetch existing vendor
+
+        /* ------------------------ FETCH VENDOR --------------------------- */
+
         const [vendor] = await db
             .select()
             .from(vendorsTable)
             .where(eq(vendorsTable.id, vendorId));
 
-        if (!vendor)
-            return NextResponse.json(
-                { error: "Vendor not found" },
-                { status: 404 },
-            );
+        if (!vendor) {
+            return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
+        }
 
-        // -----------------------------------------
-        // Extract editable fields (safe + typed)
-        // -----------------------------------------
-        const incoming: VendorEditableFields = {
+        /* --------------------- PROFILE FIELD CHANGES --------------------- */
+
+        const incoming = {
             fullName: form.get("fullName")?.toString(),
             businessName: form.get("businessName")?.toString(),
             occupation: form.get("occupation")?.toString(),
             phone: form.get("phone")?.toString(),
             address: form.get("address")?.toString(),
             businessDescription: form.get("businessDescription")?.toString(),
+            yearsOfExperience: form.get("yearsOfExperience")
+                ? Number(form.get("yearsOfExperience"))
+                : undefined,
+            successfulEventsCompleted: form.get("successfulEventsCompleted")
+                ? Number(form.get("successfulEventsCompleted"))
+                : undefined,
+            gstNumber: form.get("gstNumber")?.toString(),
         };
 
-        // Compute text field changes
-        const changes: VendorEditableFields = {};
+        const profileChanges: Record<string, any> = {};
 
-        (Object.keys(incoming) as (keyof VendorEditableFields)[]).forEach(
-            (key) => {
-                const newValue = incoming[key];
-                const oldValue = vendor[key];
+        Object.entries(incoming).forEach(([key, value]) => {
+            if (value !== undefined && value !== (vendor as any)[key]) {
+                profileChanges[key] = value;
+            }
+        });
 
-                if (newValue && newValue !== oldValue) {
-                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                    // @ts-ignore
-                    changes[key] = newValue;
-                }
-            },
-        );
+        /* -------------------- PROFILE PHOTO UPLOAD ----------------------- */
 
-        // -----------------------------------------
-        // Handle Profile Photo Upload
-        // -----------------------------------------
         let newProfilePhotoUrl: string | null = null;
-        const profileFile = form.get("profilePhoto") as File | null;
 
-        if (profileFile) {
-            const buffer = Buffer.from(await profileFile.arrayBuffer());
-            const fileName = `vendor-profile/${vendorId}-${Date.now()}-${
-                profileFile.name
-            }`;
-
-            await s3.send(
-                new PutObjectCommand({
-                    Bucket: process.env.AWS_S3_BUCKET_NAME!,
-                    Key: fileName,
-                    Body: buffer,
-                    ContentType: profileFile.type,
-                }),
-            );
-
-            newProfilePhotoUrl = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
-        }
-
-        // -----------------------------------------
-        // Handle Business Photos Upload + Removal
-        // -----------------------------------------
-
-        // Step 1: Uploaded (new) business photos
-        const businessFiles = form.getAll("businessPhotos") as File[];
-        const newBusinessPhotoUrls: string[] = [];
-
-        for (const file of businessFiles) {
+        const profileFile = form.get("profilePhoto");
+        if (profileFile && typeof profileFile === "object") {
+            const file = profileFile as File;
             const buffer = Buffer.from(await file.arrayBuffer());
-            const uniqueId = crypto.randomUUID();
-            const safeName = file.name
-                .replace(/\s+/g, "_")
-                .replace(/[^a-zA-Z0-9_.-]/g, "");
-            const fileName = `vendor-business/${vendorId}-${Date.now()}-${uniqueId}-${safeName}`;
+
+            const key = `vendors/${vendorId}/profile/${crypto.randomUUID()}-${file.name}`;
+
+            console.log("Uploading profile photo:", file.name);
 
             await s3.send(
                 new PutObjectCommand({
                     Bucket: process.env.AWS_S3_BUCKET_NAME!,
-                    Key: fileName,
+                    Key: key,
                     Body: buffer,
                     ContentType: file.type,
                 }),
             );
 
-            newBusinessPhotoUrls.push(
-                `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`,
-            );
+            newProfilePhotoUrl = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
         }
 
-        // Step 2: Detect removed images
-        const frontendBusinessPhotos = JSON.parse(
-            form.get("existingBusinessPhotos")?.toString() || "[]",
-        ) as string[];
+/* ------------------------- CATALOG CHANGES ------------------------ */
 
-        const oldBusinessPhotos = vendor.businessPhotos ?? [];
+const rawCatalogChanges = form.get("catalogChanges")?.toString();
 
-        const removedBusinessPhotos = oldBusinessPhotos.filter(
-            (photo: string) => !frontendBusinessPhotos.includes(photo),
+const catalogEdits: {
+    catalogId?: number;
+    title?: string;
+    removedImages?: string[];
+}[] = rawCatalogChanges ? JSON.parse(rawCatalogChanges) : [];
+
+const uploadedImagesByCatalog = new Map<number | string, string[]>();
+
+for (let i = 0; i < catalogEdits.length; i++) {
+    const edit = catalogEdits[i];
+    
+    let files: File[] = [];
+    let catalogKey: string;
+
+    if (edit.catalogId) {
+        // Existing catalog
+        catalogKey = `catalog_${edit.catalogId}`;
+        files = form.getAll(`catalog_${edit.catalogId}_images`) as File[];
+    } else {
+        // ✅ NEW catalog
+        catalogKey = `catalog_new_${i}`;
+        files = form.getAll(`catalog_new_${i}_images`) as File[];
+    }
+
+    console.log(`${catalogKey} files:`, files.map((f) => f.name));
+
+    for (const file of files) {
+        const buffer = Buffer.from(await file.arrayBuffer());
+
+        // ✅ For new catalogs, use temporary key structure
+        const s3Key = edit.catalogId 
+            ? `vendors/${vendorId}/catalogs/${edit.catalogId}/${crypto.randomUUID()}-${file.name}`
+            : `vendors/${vendorId}/catalogs/pending/${crypto.randomUUID()}-${file.name}`;
+
+        console.log("Uploading catalog image:", file.name, "to", s3Key);
+
+        await s3.send(
+            new PutObjectCommand({
+                Bucket: process.env.AWS_S3_BUCKET_NAME!,
+                Key: s3Key,
+                Body: buffer,
+                ContentType: file.type,
+            }),
         );
 
-        // -----------------------------------------
-        // Detect Business Photo Changes
-        // -----------------------------------------
-        const businessPhotosChanged =
-            newBusinessPhotoUrls.length > 0 || removedBusinessPhotos.length > 0;
+        const imageUrl = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
 
-        if (businessPhotosChanged) {
-            const mergedPhotos = [
-                ...frontendBusinessPhotos,
-                ...newBusinessPhotoUrls,
-            ];
+        const existing = uploadedImagesByCatalog.get(catalogKey) ?? [];
+        uploadedImagesByCatalog.set(catalogKey, [...existing, imageUrl]);
+    }
+}
 
-            changes.businessPhotos = mergedPhotos;
-        }
+/* ------------------ BUILD ACTION-BASED CHANGES -------------------- */
 
-        // -----------------------------------------
-        // Store Edit Request
-        // -----------------------------------------
+const catalogActions = catalogEdits.map((edit, index) => {
+    const catalogKey = edit.catalogId ? `catalog_${edit.catalogId}` : `catalog_new_${index}`;
+    const uploadedImages = uploadedImagesByCatalog.get(catalogKey);
+
+    return {
+        catalogId: edit.catalogId,
+        action: edit.catalogId ? ("UPDATE" as const) : ("ADD" as const),
+        payload: {
+            title: edit.title,
+            addedImages: uploadedImages?.length ? uploadedImages : undefined,
+        },
+    };
+});
+
+        /* ---------------------- STORE EDIT REQUEST ------------------------ */
+
         await db.insert(vendorProfileEdits).values({
             vendorId,
-            changes,
-
+            profileChanges:
+                Object.keys(profileChanges).length > 0 ? profileChanges : undefined,
+            catalogChanges: catalogActions.length ? catalogActions : undefined,
             newProfilePhotoUrl,
             oldProfilePhotoUrl: vendor.profilePhoto ?? null,
-
-            newBusinessPhotos: newBusinessPhotoUrls,
-            oldBusinessPhotos: vendor.businessPhotos ?? [],
-            removedBusinessPhotos,
-
             status: "PENDING",
         });
 
-        return NextResponse.json(
-            {
-                success: true,
-                message: "Profile edit submitted for admin approval",
-            },
-            { status: 200 },
-        );
+        return NextResponse.json({
+            success: true,
+            message: "Profile update submitted for admin approval",
+        });
     } catch (err) {
-        console.error("Edit Profile Error:", err);
-        return NextResponse.json({ error: "Server error" }, { status: 500 });
+        console.error("Vendor profile edit error:", err);
+        return NextResponse.json(
+            { error: "Internal server error" },
+            { status: 500 },
+        );
     }
 }

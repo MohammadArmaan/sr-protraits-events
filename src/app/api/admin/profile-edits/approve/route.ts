@@ -1,11 +1,13 @@
 // src/app/api/admin/profile-edits/approve/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/config/db";
 import { vendorProfileEdits } from "@/config/vendorProfilesSchema";
 import { vendorsTable } from "@/config/vendorsSchema";
+import { vendorCatalogsTable } from "@/config/vendorCatalogSchema";
+import { vendorCatalogImagesTable } from "@/config/vendorCatalogImagesSchema";
 import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
-import type { VendorEditableFields } from "@/types/vendor-edit";
 import { DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { sendEmail } from "@/lib/sendEmail";
 import { vendorEditApprovedEmailTemplate } from "@/lib/email-templates/vendorEditApprovedEmailTemplate";
@@ -25,17 +27,17 @@ interface DecodedToken {
 
 export async function POST(req: NextRequest) {
     try {
+        /* ---------------------------- AUTH ---------------------------- */
+
         const token = req.cookies.get("admin_token")?.value;
         if (!token)
-            return NextResponse.json(
-                { error: "Unauthorized" },
-                { status: 401 },
-            );
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
         const decoded = jwt.verify(
             token,
             process.env.JWT_SECRET!,
         ) as DecodedToken;
+
         if (decoded.role !== "admin")
             return NextResponse.json(
                 { error: "Permission denied" },
@@ -44,7 +46,8 @@ export async function POST(req: NextRequest) {
 
         const { editId } = (await req.json()) as { editId: number };
 
-        // fetch pending edit
+        /* ---------------------- FETCH EDIT ---------------------- */
+
         const [edit] = await db
             .select()
             .from(vendorProfileEdits)
@@ -62,7 +65,8 @@ export async function POST(req: NextRequest) {
                 { status: 400 },
             );
 
-        // fetch vendor
+        /* ---------------------- FETCH VENDOR ---------------------- */
+
         const [vendor] = await db
             .select()
             .from(vendorsTable)
@@ -74,56 +78,22 @@ export async function POST(req: NextRequest) {
                 { status: 404 },
             );
 
-        // --- Build updateData strictly typed ---
-        const incoming: VendorEditableFields = edit.changes ?? {};
+        /* ---------------------- APPLY PROFILE CHANGES ---------------------- */
 
-        const updateData: VendorEditableFields & {
-            profilePhoto?: string;
-            businessPhotos?: string[];
-        } = { ...incoming };
-
-        // profile photo
-        if (edit.newProfilePhotoUrl) {
-            updateData.profilePhoto = edit.newProfilePhotoUrl;
+        if (edit.profileChanges) {
+            await db
+                .update(vendorsTable)
+                .set({
+                    ...edit.profileChanges,
+                    ...(edit.newProfilePhotoUrl && {
+                        profilePhoto: edit.newProfilePhotoUrl,
+                    }),
+                })
+                .where(eq(vendorsTable.id, vendor.id));
         }
 
-        // business photos merge
-        if (Array.isArray(incoming.businessPhotos)) {
-            // This already contains existing + new - removed
-            updateData.businessPhotos = incoming.businessPhotos;
-        }
+        /* ---------------------- DELETE OLD PROFILE PHOTO ---------------------- */
 
-        // ---- Build final Drizzle set object (strict, no any) ----
-        const setObj: Record<string, string | string[] | null> = {};
-
-        if (updateData.fullName) setObj.fullName = updateData.fullName;
-        if (updateData.businessName)
-            setObj.businessName = updateData.businessName;
-        if (updateData.occupation) setObj.occupation = updateData.occupation;
-        if (updateData.phone) setObj.phone = updateData.phone;
-        if (updateData.address) setObj.address = updateData.address;
-        if (updateData.businessDescription)
-            setObj.businessDescription = updateData.businessDescription;
-
-        if (updateData.profilePhoto)
-            setObj.profilePhoto = updateData.profilePhoto;
-        if (updateData.businessPhotos)
-            setObj.businessPhotos = updateData.businessPhotos;
-
-        // nothing changed
-        if (Object.keys(setObj).length === 0)
-            return NextResponse.json(
-                { success: true, message: "No changes to apply" },
-                { status: 200 },
-            );
-
-        // ---- Update vendor ----
-        await db
-            .update(vendorsTable)
-            .set(setObj)
-            .where(eq(vendorsTable.id, vendor.id));
-
-        // ---- Delete old S3 photo if needed ----
         if (edit.newProfilePhotoUrl && edit.oldProfilePhotoUrl) {
             const key = edit.oldProfilePhotoUrl.split(".com/")[1];
             if (key) {
@@ -136,7 +106,88 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // ---- Mark as approved ----
+        /* ---------------------- APPLY CATALOG CHANGES ---------------------- */
+
+        if (Array.isArray(edit.catalogChanges)) {
+            for (const change of edit.catalogChanges) {
+                const { catalogId, action, payload } = change;
+
+                // ADD catalog
+                if (action === "ADD") {
+                    const [newCatalog] = await db
+                        .insert(vendorCatalogsTable)
+                        .values({
+                            vendorId: vendor.id,
+                            title: payload.title!,
+                            description: payload.description ?? null,
+                            categoryId: payload.categoryId ?? null,
+                            subCategoryId: payload.subCategoryId ?? null,
+                        })
+                        .returning();
+
+                    if (payload.addedImages?.length) {
+                        await db.insert(vendorCatalogImagesTable).values(
+                            payload.addedImages.map((url) => ({
+                                catalogId: newCatalog.id,
+                                imageUrl: url,
+                            })),
+                        );
+                    }
+                }
+
+                // UPDATE catalog
+                if (action === "UPDATE" && catalogId) {
+                    await db
+                        .update(vendorCatalogsTable)
+                        .set({
+                            title: payload.title,
+                            description: payload.description,
+                            categoryId: payload.categoryId,
+                            subCategoryId: payload.subCategoryId,
+                        })
+                        .where(eq(vendorCatalogsTable.id, catalogId));
+
+                    if (payload.removedImageIds?.length) {
+                        await db
+                            .delete(vendorCatalogImagesTable)
+                            .where(
+                                eq(
+                                    vendorCatalogImagesTable.catalogId,
+                                    catalogId,
+                                ),
+                            );
+                    }
+
+                    if (payload.addedImages?.length) {
+                        await db.insert(vendorCatalogImagesTable).values(
+                            payload.addedImages.map((url) => ({
+                                catalogId,
+                                imageUrl: url,
+                            })),
+                        );
+                    }
+                }
+
+                // DELETE catalog
+                if (action === "DELETE" && catalogId) {
+                    await db
+                        .delete(vendorCatalogImagesTable)
+                        .where(
+                            eq(
+                                vendorCatalogImagesTable.catalogId,
+                                catalogId,
+                            ),
+                        );
+
+                    await db
+                        .delete(vendorCatalogsTable)
+                        .where(eq(vendorCatalogsTable.id, catalogId));
+                }
+            }
+        }
+
+        /* ---------------------- MARK EDIT APPROVED ---------------------- */
+
         await db
             .update(vendorProfileEdits)
             .set({
@@ -146,15 +197,16 @@ export async function POST(req: NextRequest) {
             })
             .where(eq(vendorProfileEdits.id, editId));
 
-        // ---- Email notification ----
+        /* ---------------------- EMAIL ---------------------- */
+
         await sendEmail({
             to: vendor.email,
-            subject: "Your Profile is Updated",
+            subject: "Your profile update has been approved",
             html: vendorEditApprovedEmailTemplate(vendor.fullName),
         });
 
         return NextResponse.json(
-            { success: true, message: "Profile edit approved successfully" },
+            { success: true, message: "Edit approved successfully" },
             { status: 200 },
         );
     } catch (error) {

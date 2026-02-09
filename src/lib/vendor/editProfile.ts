@@ -7,10 +7,13 @@ interface ApiErrorResponse {
 
 export async function submitProfileEdit(formData: FormData) {
     try {
-        const res = await axios.post("/api/vendors/edit-profile", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
-            withCredentials: true,
-        });
+        const res = await axios.post(
+            "/api/vendors/edit-profile",
+            formData,
+            {
+                withCredentials: true,
+            },
+        );
 
         return res.data;
     } catch (error) {

@@ -1,5 +1,5 @@
 /**
- * @fileoverview Vendor Registration – Step 3 (Business Description)
+ * Vendor Registration – Step 3 (Business Description)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -15,69 +15,63 @@ interface DescriptionBody {
 
 interface OnboardingTokenPayload {
     vendorId: number;
-    step: number;
-    iat?: number;
-    exp?: number;
 }
 
 export async function POST(req: NextRequest) {
     try {
-        const body: DescriptionBody = await req.json();
-        const { onboardingToken, businessDescription } = body;
+        const { onboardingToken, businessDescription }: DescriptionBody =
+            await req.json();
 
         if (!onboardingToken || !businessDescription) {
             return NextResponse.json(
-                {
-                    error: "onboardingToken and businessDescription are required.",
-                },
-                { status: 400 }
+                { error: "Missing required fields." },
+                { status: 400 },
             );
         }
 
-        // Verify onboarding token
+        // Verify token (identity only)
         let decoded: OnboardingTokenPayload;
         try {
             decoded = jwt.verify(
                 onboardingToken,
-                process.env.JWT_SECRET!
+                process.env.JWT_SECRET!,
             ) as OnboardingTokenPayload;
         } catch {
             return NextResponse.json(
                 { error: "Invalid or expired onboarding token." },
-                { status: 401 }
+                { status: 401 },
             );
         }
 
         const vendorId = decoded.vendorId;
 
         // Fetch vendor
-        const vendor = await db
+        const [vendor] = await db
             .select()
             .from(vendorsTable)
             .where(eq(vendorsTable.id, vendorId));
 
-        if (vendor.length === 0) {
+        if (!vendor) {
             return NextResponse.json(
                 { error: "Vendor not found." },
-                { status: 404 }
+                { status: 404 },
             );
         }
 
-        const vendorRecord = vendor[0];
-
-        if (!vendorRecord.emailVerified) {
+        if (!vendor.emailVerified) {
             return NextResponse.json(
                 { error: "Email not verified yet." },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
-        if (vendorRecord.currentStep !== 2) {
+        // 🔥 STEP CHECK FROM DB
+        if (vendor.currentStep !== 2) {
             return NextResponse.json(
                 {
-                    error: `Vendor is currently on step ${vendorRecord.currentStep}, cannot update description.`,
+                    error: `Vendor is currently on step ${vendor.currentStep}, cannot update description.`,
                 },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
@@ -87,30 +81,22 @@ export async function POST(req: NextRequest) {
             .set({
                 businessDescription,
                 currentStep: 3,
-                status: "BUSINESS_DESCRIPTION_ADDED"
+                status: "BUSINESS_DESCRIPTION_ADDED",
             })
             .where(eq(vendorsTable.id, vendorId));
-
-        // Issue new onboarding token
-        const newToken = jwt.sign(
-            { vendorId, step: 3 },
-            process.env.JWT_SECRET!,
-            { expiresIn: "1h" }
-        );
 
         return NextResponse.json(
             {
                 success: true,
                 message: "Business description saved.",
-                onboardingToken: newToken,
             },
-            { status: 200 }
+            { status: 200 },
         );
     } catch (error) {
         console.error("Step 3 Error:", error);
         return NextResponse.json(
             { error: "Internal server error." },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }

@@ -22,6 +22,20 @@ export interface VendorDetails {
     businessDescription: string | null;
     profilePhoto: string | null;
     businessPhotos: string[];
+    yearsOfExperience: number;
+    successfulEventsCompleted: number;
+    gstNumber?: string | null;
+    points: number;
+    demandPrice: number;
+catalogs: {
+    id: number;
+    title: string;
+    description: string | null;
+    images: {
+        id: number;
+        imageUrl: string;
+    }[];
+}[];
     status: string;
     isApproved: boolean;
     approvedAt: string | null;

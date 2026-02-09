@@ -9,6 +9,8 @@ import {
     Building2,
     Briefcase,
     CreditCard,
+    IndianRupee,
+    Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
@@ -47,7 +49,7 @@ export default function VendorDetailsPage() {
 
     const canApprove =
         vendor.status === "PENDING_APPROVAL" ||
-        vendor.status === "BUSINESS_PHOTOS_UPLOADED";
+        vendor.status === "CATALOG_CREATED";
 
     const handleAccept = () => {
         approve.mutate(
@@ -169,6 +171,39 @@ export default function VendorDetailsPage() {
                                 value={vendor.address}
                                 full
                             />
+                            <InfoItem
+                                icon={<Briefcase className="h-4 w-4" />}
+                                label="Experience"
+                                value={`${vendor.yearsOfExperience} years`}
+                            />
+
+                            <InfoItem
+                                icon={<Building2 className="h-4 w-4" />}
+                                label="Successful Events"
+                                value={String(vendor.successfulEventsCompleted)}
+                            />
+
+                            {vendor.gstNumber && (
+                                <InfoItem
+                                    icon={<CreditCard className="h-4 w-4" />}
+                                    label="GST Number"
+                                    value={vendor.gstNumber}
+                                    full
+                                />
+                            )}
+
+                            <InfoItem
+                                icon={<IndianRupee className="h-4 w-4" />}
+                                label="Demand Price"
+                                value={String(vendor.demandPrice)}
+                            />
+
+                            <InfoItem
+                                icon={<Star className="h-4 w-4" />}
+                                label="Vendor Points"
+                                value={String(vendor.points)}
+                            />
+
                         </div>
 
                         <Separator className="my-6" />
@@ -197,6 +232,50 @@ export default function VendorDetailsPage() {
                                             className="h-48 w-full object-cover rounded-lg border"
                                         />
                                     </Zoom>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Catalogs - moved here to left column */}
+                    {vendor.catalogs?.length > 0 && (
+                        <div className="bg-card rounded-lg p-6 shadow-card">
+                            <h3 className="font-semibold mb-4">Catalogs</h3>
+
+                            <div className="space-y-6">
+                                {vendor.catalogs.map((catalog) => (
+                                    <div
+                                        key={catalog.id}
+                                        className="border rounded-lg p-4"
+                                    >
+                                        <h4 className="font-semibold mb-2">
+                                            {catalog.title}
+                                        </h4>
+
+                                        {catalog.description && (
+                                            <p className="text-sm text-muted-foreground mb-3">
+                                                {catalog.description}
+                                            </p>
+                                        )}
+
+                                        {catalog.images.length > 0 ? (
+                                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                                {catalog.images.map((img) => (
+                                                    <Zoom key={img.id}>
+                                                        <img
+                                                            src={img.imageUrl}
+                                                            className="h-40 w-full object-cover rounded-lg border"
+                                                            alt=""
+                                                        />
+                                                    </Zoom>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground">
+                                                No images in this catalog
+                                            </p>
+                                        )}
+                                    </div>
                                 ))}
                             </div>
                         </div>

@@ -9,7 +9,6 @@ export function useEditVendorProfile() {
             submitProfileEdit(formData),
 
         onSuccess: () => {
-            // 🔥 Revalidate vendor profile everywhere
             queryClient.invalidateQueries({
                 queryKey: ["vendor"],
             });

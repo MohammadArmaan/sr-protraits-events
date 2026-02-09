@@ -1,3 +1,5 @@
+// src/app/api/admin/profile-edits/reject/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/config/db";
 import { vendorProfileEdits } from "@/config/vendorProfilesSchema";
@@ -23,9 +25,8 @@ interface DecodedToken {
 
 export async function POST(req: NextRequest) {
     try {
-        // --------------------------
-        // Validate admin token
-        // --------------------------
+        /* ---------------------------- AUTH ---------------------------- */
+
         const token = req.cookies.get("admin_token")?.value;
         if (!token) {
             return NextResponse.json(
@@ -34,18 +35,10 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        let decoded: DecodedToken;
-        try {
-            decoded = jwt.verify(
-                token,
-                process.env.JWT_SECRET!,
-            ) as DecodedToken;
-        } catch {
-            return NextResponse.json(
-                { error: "Invalid token" },
-                { status: 401 },
-            );
-        }
+        const decoded = jwt.verify(
+            token,
+            process.env.JWT_SECRET!,
+        ) as DecodedToken;
 
         if (decoded.role !== "admin") {
             return NextResponse.json(
@@ -54,11 +47,12 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // --------------------------
-        // Parse editId from request
-        // --------------------------
-        const body = await req.json();
-        const editId: number = Number(body.editId);
+        /* ---------------------------- INPUT ---------------------------- */
+
+        const { editId, reason } = (await req.json()) as {
+            editId: number;
+            reason?: string;
+        };
 
         if (!editId) {
             return NextResponse.json(
@@ -67,9 +61,8 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // --------------------------
-        // Fetch related edit request
-        // --------------------------
+        /* ------------------------- FETCH EDIT ------------------------- */
+
         const [edit] = await db
             .select()
             .from(vendorProfileEdits)
@@ -77,21 +70,20 @@ export async function POST(req: NextRequest) {
 
         if (!edit) {
             return NextResponse.json(
-                { error: "Request not found" },
+                { error: "Edit request not found" },
                 { status: 404 },
             );
         }
 
         if (edit.status !== "PENDING") {
             return NextResponse.json(
-                { error: "Already processed" },
+                { error: "Request already processed" },
                 { status: 400 },
             );
         }
 
-        // --------------------------
-        // Fetch vendor for email
-        // --------------------------
+        /* ------------------------ FETCH VENDOR ------------------------ */
+
         const [vendor] = await db
             .select()
             .from(vendorsTable)
@@ -104,9 +96,8 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // ----------------------------------------------------------
-        // Delete NEW profile photo (if uploaded)
-        // ----------------------------------------------------------
+        /* ------------------- CLEANUP: PROFILE PHOTO ------------------- */
+
         if (edit.newProfilePhotoUrl) {
             const key = edit.newProfilePhotoUrl.split(".com/")[1];
             if (key) {
@@ -119,48 +110,50 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // ----------------------------------------------------------
-        // Delete NEW business photos
-        // ----------------------------------------------------------
-        const newBusinessPhotos = Array.isArray(edit.newBusinessPhotos)
-            ? edit.newBusinessPhotos
-            : [];
+        /* ------------------ CLEANUP: CATALOG IMAGES ------------------- */
 
-        for (const url of newBusinessPhotos) {
-            const key = url.split(".com/")[1];
-            if (key) {
-                await s3.send(
-                    new DeleteObjectCommand({
-                        Bucket: process.env.AWS_S3_BUCKET_NAME!,
-                        Key: key,
-                    }),
-                );
+        if (Array.isArray(edit.catalogChanges)) {
+            for (const change of edit.catalogChanges) {
+                const addedImages = change.payload?.addedImages ?? [];
+
+                for (const url of addedImages) {
+                    const key = url.split(".com/")[1];
+                    if (key) {
+                        await s3.send(
+                            new DeleteObjectCommand({
+                                Bucket: process.env.AWS_S3_BUCKET_NAME!,
+                                Key: key,
+                            }),
+                        );
+                    }
+                }
             }
         }
 
-        // ----------------------------------------------------------
-        // Mark the edit request as REJECTED
-        // ----------------------------------------------------------
+        /* -------------------- MARK AS REJECTED -------------------- */
+
         await db
             .update(vendorProfileEdits)
             .set({
                 status: "REJECTED",
+                rejectionReason: reason ?? null,
                 rejectedByAdminId: decoded.adminId,
                 reviewedAt: new Date(),
             })
             .where(eq(vendorProfileEdits.id, editId));
 
-        // ----------------------------------------------------------
-        // Send rejection email
-        // ----------------------------------------------------------
+        /* ------------------------ EMAIL ------------------------ */
+
         await sendEmail({
             to: vendor.email,
-            subject: "Your Profile Edit Request Was Rejected",
-            html: vendorEditRejectedEmailTemplate(vendor.fullName),
+            subject: "Your profile update request was rejected",
+            html: vendorEditRejectedEmailTemplate(
+                vendor.fullName,
+            ),
         });
 
         return NextResponse.json(
-            { success: true, message: "Profile edit rejected" },
+            { success: true, message: "Profile edit rejected successfully" },
             { status: 200 },
         );
     } catch (error) {

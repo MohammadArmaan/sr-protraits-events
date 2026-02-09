@@ -3,6 +3,7 @@ import { VendorPhotosPayload } from "@/types/vendor-registration";
 
 export async function submitPhotos({
     photos,
+    catalogTitle,
 }: VendorPhotosPayload): Promise<{ message: string }> {
     const onboardingToken = sessionStorage.getItem("onboardingToken");
 
@@ -10,17 +11,26 @@ export async function submitPhotos({
         throw new Error("Missing onboarding token.");
     }
 
+    if (!catalogTitle.trim()) {
+        throw new Error("Catalog title is required.");
+    }
+
     const form = new FormData();
     form.append("onboardingToken", onboardingToken);
+    form.append("catalogTitle", catalogTitle);
 
     photos.forEach((file) => {
-        form.append("files", file); // FIXED → match backend
+        form.append("files", file);
     });
 
     try {
-        const res = await axios.post("/api/vendors/upload-photos", form, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
+        const res = await axios.post(
+            "/api/vendors/upload-photos",
+            form,
+            {
+                headers: { "Content-Type": "multipart/form-data" },
+            },
+        );
 
         return res.data;
     } catch (err) {

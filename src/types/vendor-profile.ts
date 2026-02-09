@@ -1,7 +1,7 @@
 export interface VendorProfile {
     id: number;
     fullName: string;
-    businessName: string;
+    businessName?: string;
     occupation: string;
     phone: string;
     address: string;

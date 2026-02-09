@@ -25,6 +25,10 @@ export interface Vendor {
     email: string;
     passwordHash: string;
 
+    yearsOfExperience: number;
+    successfulEventsCompleted: number;
+    gstNumber?: string | null;
+
     emailVerified: boolean;
     emailVerificationOtp?: string | null;
     emailVerificationExpires?: Date | null;
@@ -39,7 +43,6 @@ export interface Vendor {
     resetPasswordExpires?: Date | null;
 
     businessDescription: string | null;
-    businessPhotos: string[];
     profilePhoto?: string | null;
 
     currentStep: number;
@@ -52,3 +55,28 @@ export interface Vendor {
     updatedAt: Date;
 }
 
+export interface VendorCatalogImage {
+    id: number;
+    imageUrl: string;
+    createdAt: Date;
+}
+
+export interface VendorCatalog {
+    id: number;
+    vendorId: number;
+
+    title: string;
+    description: string | null;
+
+    categoryId: number | null;
+    subCategoryId: number | null;
+
+    images: VendorCatalogImage[];
+
+    createdAt: Date;
+}
+
+export interface VendorWithCatalogs {
+    vendor: Vendor;
+    catalogs: VendorCatalog[];
+}

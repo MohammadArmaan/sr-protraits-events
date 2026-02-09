@@ -56,11 +56,16 @@ export function ProfileEditTable({ edits, isLoading }: Props) {
                 <TableBody>
                     {edits.map((edit) => {
                         const hasPhotoChange =
-                            edit.oldProfilePhotoUrl !== edit.newProfilePhotoUrl;
+                            !!edit.newProfilePhotoUrl &&
+                            edit.newProfilePhotoUrl !== edit.oldProfilePhotoUrl;
 
-                        const hasOtherChanges =
-                            Object.keys(edit.changes || {}).length > 0;
+                        const hasProfileChanges =
+                            !!edit.profileChanges &&
+                            Object.keys(edit.profileChanges).length > 0;
 
+                        const hasCatalogChanges =
+                            !!edit.catalogChanges &&
+                            edit.catalogChanges.length > 0;
                         return (
                             <TableRow key={edit.editId}>
                                 {/* Vendor */}
@@ -83,13 +88,22 @@ export function ProfileEditTable({ edits, isLoading }: Props) {
                                                 Profile Photo
                                             </Badge>
                                         )}
-                                        {hasOtherChanges && (
+
+                                        {hasProfileChanges && (
                                             <Badge variant="secondary">
                                                 Profile Info
                                             </Badge>
                                         )}
+
+                                        {hasCatalogChanges && (
+                                            <Badge variant="secondary">
+                                                Catalog
+                                            </Badge>
+                                        )}
+
                                         {!hasPhotoChange &&
-                                            !hasOtherChanges && (
+                                            !hasProfileChanges &&
+                                            !hasCatalogChanges && (
                                                 <Badge variant="secondary">
                                                     Misc
                                                 </Badge>

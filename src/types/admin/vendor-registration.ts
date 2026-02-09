@@ -1,7 +1,7 @@
 // src/types/admin/vendor-registration.ts
 export type VendorRegistrationStatus =
     | "PENDING_APPROVAL"
-    | "BUSINESS_PHOTOS_UPLOADED"
+    | "CATALOG_CREATED"
     | "APPROVED"
     | "ACTIVE"
     | "REJECTED";

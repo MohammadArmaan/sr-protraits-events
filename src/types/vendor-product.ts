@@ -17,7 +17,7 @@ export interface VendorProduct {
     rating: number;
     ratingCount: number;
 
-    businessName: string;
+    businessName?: string;
     occupation: string;
 
     images: string[];

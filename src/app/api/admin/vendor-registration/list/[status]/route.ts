@@ -1,74 +1,124 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/config/db";
 import { vendorsTable } from "@/config/vendorsSchema";
+import { vendorBankDetailsTable } from "@/config/vendorBankDetailsSchema";
 import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
-import { adminsTable } from "@/config/adminsSchema";
 
 export async function GET(
     req: NextRequest,
-    context: { params: Promise<{ status: string }> }
+    context: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { status } = await context.params;
+        const { id } = await context.params;
+        const vendorId = Number(id);
 
-        if (!status) {
+        if (!vendorId || Number.isNaN(vendorId)) {
             return NextResponse.json(
-                { error: "Missing status parameter" },
-                { status: 400 }
+                { error: "Invalid vendor id" },
+                { status: 400 },
             );
         }
 
-        const normalizedStatus = status.toUpperCase();
-
+        // -----------------------------
         // Validate admin token
+        // -----------------------------
         const token = req.cookies.get("admin_token")?.value;
-        if (!token)
+
+        if (!token) {
             return NextResponse.json(
                 { error: "Unauthorized" },
-                { status: 401 }
+                { status: 401 },
             );
+        }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
             adminId: number;
             role: string;
         };
 
-        if (decoded.role !== "admin")
+        if (decoded.role !== "admin") {
             return NextResponse.json(
                 { error: "Forbidden: Admins only" },
-                { status: 403 }
+                { status: 403 },
             );
+        }
 
-        // Query vendors by status
-        const vendors = await db
+        // -----------------------------
+        // Fetch vendor
+        // -----------------------------
+        const [vendor] = await db
             .select({
-                vendorId: vendorsTable.id,
+                id: vendorsTable.id,
                 fullName: vendorsTable.fullName,
-                occupation: vendorsTable.occupation,
                 businessName: vendorsTable.businessName,
-                businessDescription: vendorsTable.businessDescription,
-                email: vendorsTable.email,
+                occupation: vendorsTable.occupation,
                 phone: vendorsTable.phone,
-                profilePhoto: vendorsTable.profilePhoto,
-                businessPhotos: vendorsTable.businessPhotos,
+                email: vendorsTable.email,
+                address: vendorsTable.address,
 
+                businessDescription: vendorsTable.businessDescription,
+                profilePhoto: vendorsTable.profilePhoto,
+
+                // ✅ Professional metrics
+                yearsOfExperience: vendorsTable.yearsOfExperience,
+                successfulEventsCompleted:
+                    vendorsTable.successfulEventsCompleted,
+                points: vendorsTable.points,
+
+                // ✅ Compliance
+                gstNumber: vendorsTable.gstNumber,
+
+                // ✅ Admin / lifecycle
                 status: vendorsTable.status,
-                activationToken: vendorsTable.activationToken,
-                activationTokenExpires: vendorsTable.activationTokenExpires,
-                createdAt: vendorsTable.createdAt,
+                isApproved: vendorsTable.isApproved,
                 approvedAt: vendorsTable.approvedAt,
+                createdAt: vendorsTable.createdAt,
             })
             .from(vendorsTable)
-            .where(eq(vendorsTable.status, normalizedStatus))
-            .orderBy(vendorsTable.createdAt);
+            .where(eq(vendorsTable.id, vendorId));
 
-        return NextResponse.json({ success: true, vendors }, { status: 200 });
-    } catch (error) {
-        console.error("Activation list fetch error:", error);
+        if (!vendor) {
+            return NextResponse.json(
+                { error: "Vendor not found" },
+                { status: 404 },
+            );
+        }
+
+        // -----------------------------
+        // Fetch bank details (nullable)
+        // -----------------------------
+        const [bankDetails] = await db
+            .select({
+                accountHolderName:
+                    vendorBankDetailsTable.accountHolderName,
+                accountNumber: vendorBankDetailsTable.accountNumber,
+                ifscCode: vendorBankDetailsTable.ifscCode,
+                isPayoutReady: vendorBankDetailsTable.isPayoutReady,
+                isEdited: vendorBankDetailsTable.isEdited,
+                confirmedAt: vendorBankDetailsTable.confirmedAt,
+                pendingChanges: vendorBankDetailsTable.pendingChanges,
+                adminApprovedAt:
+                    vendorBankDetailsTable.adminApprovedAt,
+            })
+            .from(vendorBankDetailsTable)
+            .where(eq(vendorBankDetailsTable.vendorId, vendorId));
+
         return NextResponse.json(
-            { error: "Server error fetching activation list" },
-            { status: 500 }
+            {
+                success: true,
+                vendor: {
+                    ...vendor,
+                    bankDetails: bankDetails ?? null,
+                },
+            },
+            { status: 200 },
+        );
+    } catch (error) {
+        console.error("Vendor details fetch error:", error);
+        return NextResponse.json(
+            { error: "Server error fetching vendor details" },
+            { status: 500 },
         );
     }
 }

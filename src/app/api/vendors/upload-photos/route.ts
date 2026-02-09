@@ -1,31 +1,21 @@
 /**
- * @fileoverview Vendor Registration – Step 4 (Upload Business Photos)
+ * Vendor Registration – Step 4 (Create Catalog + Upload Images)
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { db } from "@/config/db";
 import { vendorsTable } from "@/config/vendorsSchema";
+import { vendorCatalogsTable } from "@/config/vendorCatalogSchema";
+import { vendorCatalogImagesTable } from "@/config/vendorCatalogImagesSchema";
 import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
+import { randomUUID } from "crypto";
 
-/** Type for JWT onboarding token */
 interface OnboardingTokenPayload {
     vendorId: number;
-    step: number;
-    iat?: number;
-    exp?: number;
 }
 
-/** Response type for returning JSON */
-interface Step4Response {
-    success: boolean;
-    message: string;
-    onboardingToken?: string;
-    photos?: string[];
-}
-
-/** AWS S3 Client */
 const s3 = new S3Client({
     region: process.env.AWS_REGION!,
     credentials: {
@@ -38,28 +28,19 @@ export async function POST(req: NextRequest) {
     try {
         const formData = await req.formData();
 
-        const onboardingToken = formData.get("onboardingToken") as
-            | string
-            | null;
+        const onboardingToken = formData.get("onboardingToken") as string;
+        const catalogTitle = formData.get("catalogTitle") as string;
+        const catalogDescription = formData.get("catalogDescription") as string | null;
         const files = formData.getAll("files") as File[];
 
-        if (!onboardingToken) {
+        if (!onboardingToken || !catalogTitle || files.length === 0) {
             return NextResponse.json(
-                { error: "Missing onboarding token." },
+                { error: "Missing required catalog data." },
                 { status: 400 },
             );
         }
 
-        if (files.length === 0) {
-            return NextResponse.json(
-                { error: "At least one photo must be uploaded." },
-                { status: 400 },
-            );
-        }
-
-        // ------------------------------
-        // 1. VERIFY TOKEN
-        // ------------------------------
+        // Verify token (identity only)
         let decoded: OnboardingTokenPayload;
         try {
             decoded = jwt.verify(
@@ -75,95 +56,79 @@ export async function POST(req: NextRequest) {
 
         const vendorId = decoded.vendorId;
 
-        // ------------------------------
-        // 2. FETCH VENDOR
-        // ------------------------------
-        const vendorResult = await db
+        // Fetch vendor
+        const [vendor] = await db
             .select()
             .from(vendorsTable)
             .where(eq(vendorsTable.id, vendorId));
 
-        if (vendorResult.length === 0) {
+        if (!vendor) {
             return NextResponse.json(
                 { error: "Vendor not found." },
                 { status: 404 },
             );
         }
 
-        const vendor = vendorResult[0];
-
+        // 🔥 STEP CHECK FROM DB
         if (vendor.currentStep !== 3) {
             return NextResponse.json(
                 {
-                    error: `Vendor is currently on step ${vendor.currentStep}, cannot upload photos.`,
+                    error: `Vendor is currently on step ${vendor.currentStep}, cannot create catalog.`,
                 },
                 { status: 400 },
             );
         }
 
-        // ------------------------------
-        // 3. UPLOAD ALL IMAGES TO S3
-        // ------------------------------
-        const uploadedUrls: string[] = [];
+        // Create catalog
+        const [catalog] = await db
+            .insert(vendorCatalogsTable)
+            .values({
+                vendorId,
+                title: catalogTitle.trim(),
+                description: catalogDescription || null,
+            })
+            .returning();
 
+        // Upload images
         for (const file of files) {
             const buffer = Buffer.from(await file.arrayBuffer());
-            const fileName = `${vendorId}-${Date.now()}-${file.name}`;
+            const key = `vendors/${vendorId}/catalogs/${catalog.id}/${randomUUID()}-${file.name}`;
 
-            const command = new PutObjectCommand({
-                Bucket: process.env.AWS_S3_BUCKET_NAME!,
-                Key: fileName,
-                Body: buffer,
-                ContentType: file.type,
+            await s3.send(
+                new PutObjectCommand({
+                    Bucket: process.env.AWS_S3_BUCKET_NAME!,
+                    Key: key,
+                    Body: buffer,
+                    ContentType: file.type,
+                }),
+            );
+
+            const imageUrl = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+
+            await db.insert(vendorCatalogImagesTable).values({
+                catalogId: catalog.id,
+                imageUrl,
             });
-
-            await s3.send(command);
-
-            const fileUrl = `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
-
-            uploadedUrls.push(fileUrl);
         }
 
-        // ------------------------------
-        // 4. APPEND TO existing photos
-        // ------------------------------
-        const updatedPhotos = [
-            ...(vendor.businessPhotos ?? []),
-            ...uploadedUrls,
-        ];
-
+        // Advance step
         await db
             .update(vendorsTable)
             .set({
-                businessPhotos: updatedPhotos,
                 currentStep: 4,
-                status: "BUSINESS_PHOTOS_UPLOADED",
+                status: "CATALOG_CREATED",
             })
             .where(eq(vendorsTable.id, vendorId));
 
-        // ------------------------------
-        // 5. ISSUE NEXT ONBOARDING TOKEN (Step 4)
-        // ------------------------------
-        const newToken = jwt.sign(
-            { vendorId, step: 4 },
-            process.env.JWT_SECRET!,
-            { expiresIn: "1h" },
-        );
-
-        // ------------------------------
-        // 6. SUCCESS RESPONSE
-        // ------------------------------
-        return NextResponse.json<Step4Response>(
+        return NextResponse.json(
             {
                 success: true,
-                message: "Business photos uploaded successfully.",
-                onboardingToken: newToken,
-                photos: updatedPhotos,
+                message: "Catalog created successfully.",
             },
             { status: 200 },
         );
     } catch (error) {
-        console.error("Step 4 Upload Error:", error);
+        console.error("Step 4 Error:", error);
         return NextResponse.json(
             { error: "Internal server error." },
             { status: 500 },

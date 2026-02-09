@@ -13,13 +13,23 @@ interface Props {
         address: string;
         businessDescription: string;
         email: string;
+
+        yearsOfExperience: number;
+        successfulEventsCompleted: number;
+        gstNumber?: string | null;
     };
     disabled: boolean;
     readOnlyEmail?: boolean;
-    onChange: (field: string, value: string) => void;
+    onChange: (field: string, value: string | number) => void;
 }
 
-export function VendorDetailsForm({ data, disabled, onChange, readOnlyEmail }: Props) {
+
+export function VendorDetailsForm({
+    data,
+    disabled,
+    onChange,
+    readOnlyEmail,
+}: Props) {
     return (
         <div className="space-y-6">
             {/* Row 1 */}
@@ -35,6 +45,7 @@ export function VendorDetailsForm({ data, disabled, onChange, readOnlyEmail }: P
                         className="rounded-xl"
                     />
                 </div>
+
                 <div>
                     <Label>Email</Label>
                     <Input
@@ -43,8 +54,6 @@ export function VendorDetailsForm({ data, disabled, onChange, readOnlyEmail }: P
                         className="rounded-xl bg-muted cursor-not-allowed"
                     />
                 </div>
-
-                
             </div>
 
             {/* Row 2 */}
@@ -79,22 +88,73 @@ export function VendorDetailsForm({ data, disabled, onChange, readOnlyEmail }: P
                 <Input
                     value={data.address}
                     disabled={disabled}
-                    onChange={(e) => onChange("address", e.target.value)}
+                    onChange={(e) =>
+                        onChange("address", e.target.value)
+                    }
                     className="rounded-xl"
                 />
             </div>
 
             <div>
-                    <Label>Business Name</Label>
+                <Label>Business Name</Label>
+                <Input
+                    value={data.businessName}
+                    disabled={disabled}
+                    onChange={(e) =>
+                        onChange("businessName", e.target.value)
+                    }
+                    className="rounded-xl"
+                />
+            </div>
+
+            {/* Professional Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <Label>Years of Experience</Label>
                     <Input
-                        value={data.businessName}
+                        type="number"
+                        min={0}
+                        value={data.yearsOfExperience}
                         disabled={disabled}
                         onChange={(e) =>
-                            onChange("businessName", e.target.value)
+                            onChange(
+                                "yearsOfExperience",
+                                Number(e.target.value),
+                            )
                         }
                         className="rounded-xl"
                     />
                 </div>
+
+                <div>
+                    <Label>Successful Events Completed</Label>
+                    <Input
+                        type="number"
+                        min={0}
+                        value={data.successfulEventsCompleted}
+                        disabled={disabled}
+                        onChange={(e) =>
+                            onChange(
+                                "successfulEventsCompleted",
+                                Number(e.target.value),
+                            )
+                        }
+                        className="rounded-xl"
+                    />
+                </div>
+            </div>
+
+            <div>
+                <Label>GST Number (optional)</Label>
+                <Input
+                    value={data.gstNumber ?? ""}
+                    disabled={disabled}
+                    onChange={(e) =>
+                        onChange("gstNumber", e.target.value)
+                    }
+                    className="rounded-xl"
+                />
+            </div>
 
             <div>
                 <Label>Business Description</Label>
@@ -102,7 +162,10 @@ export function VendorDetailsForm({ data, disabled, onChange, readOnlyEmail }: P
                     value={data.businessDescription}
                     disabled={disabled}
                     onChange={(e) =>
-                        onChange("businessDescription", e.target.value)
+                        onChange(
+                            "businessDescription",
+                            e.target.value,
+                        )
                     }
                     className="rounded-xl min-h-[120px]"
                 />

@@ -5,8 +5,9 @@ export interface VendorProfileEditChanges {
     phone?: string;
     address?: string;
     businessDescription?: string;
-    profilePhoto?: string;
-    businessPhotos?: string[];
+    yearsOfExperience?: number;
+    successfulEventsCompleted?: number;
+    gstNumber?: string | null;
 }
 
 export interface VendorProfileEditRequest {
@@ -23,6 +24,9 @@ export interface VendorProfileEditRequest {
         businessDescription?: string;
         profilePhoto?: string;
         businessPhotos?: string[];
+        yearsOfExperience?: number;
+        successfulEventsCompleted?: number;
+        gstNumber?: string | null;
     };
 
     // Requested changes
@@ -36,30 +40,54 @@ export type ProfileTextEditableField = Exclude<
     "profilePhoto" | "businessPhotos"
 >;
 
-export type ProfileEditStatus =
-    | "ALL"
-    | "PENDING"
-    | "APPROVED"
-    | "REJECTED";
+export type ProfileEditStatus = "ALL" | "PENDING" | "APPROVED" | "REJECTED";
 
 export interface ProfileEditRequest {
     editId: number;
     vendorId: number;
 
     vendorName: string;
+    vendorPhone: string;
+    vendorOccupation: string;
+    vendorDescription: string;
     vendorBusinessName: string;
     vendorEmail: string;
+    vendorGstNumber: string | null;
+    vendorAddress: string;
+    vendorYearsOfExperience: number;
+    vendorSuccessfulEventsCompleted: number;
 
-    changes: Record<string, unknown>;
+    profileChanges: Record<string, unknown>;
+
+    catalogChanges:
+        | {
+              catalogId?: number;
+              action: "ADD" | "UPDATE" | "DELETE";
+              payload: {
+                  title?: string;
+                  description?: string;
+                  addedImages?: string[];
+                  removedImageIds?: number[];
+              };
+          }[]
+        | null;
+
+    catalogs: {
+        id: number;
+        title: string;
+        description: string | null;
+        images: {
+            id: number;
+            imageUrl: string;
+        }[];
+    }[];
 
     oldProfilePhotoUrl: string | null;
     newProfilePhotoUrl: string | null;
 
     vendorCurrentPhoto: string | null;
-    vendorBusinessPhotos: string[];
 
     status: ProfileEditStatus;
-
     createdAt: string;
     reviewedAt: string | null;
 
@@ -69,7 +97,6 @@ export interface ProfileEditRequest {
 export interface ProfileEditListResponse {
     edits: ProfileEditRequest[];
 }
-
 
 export interface VendorProfileEditListResponse {
     vendors: VendorProfileEditRequest[];

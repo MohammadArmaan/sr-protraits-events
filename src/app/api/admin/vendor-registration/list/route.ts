@@ -5,8 +5,11 @@ import jwt from "jsonwebtoken";
 
 export async function GET(req: NextRequest) {
     try {
-        // 🔐 Validate admin token
+        // -----------------------------
+        // Validate Admin Token
+        // -----------------------------
         const token = req.cookies.get("admin_token")?.value;
+
         if (!token) {
             return NextResponse.json(
                 { error: "Unauthorized" },
@@ -26,28 +29,33 @@ export async function GET(req: NextRequest) {
             );
         }
 
-        // ✅ Fetch ALL vendors (no status filter)
+        // -----------------------------
+        // Fetch ALL Vendors
+        // -----------------------------
         const vendors = await db
             .select({
                 vendorId: vendorsTable.id,
                 fullName: vendorsTable.fullName,
-                occupation: vendorsTable.occupation,
                 businessName: vendorsTable.businessName,
+                occupation: vendorsTable.occupation,
                 email: vendorsTable.email,
                 phone: vendorsTable.phone,
-                profilePhoto: vendorsTable.profilePhoto,
-                businessPhotos: vendorsTable.businessPhotos,
 
+                profilePhoto: vendorsTable.profilePhoto,
+
+                currentStep: vendorsTable.currentStep,
                 status: vendorsTable.status,
-                activationToken: vendorsTable.activationToken,
-                activationTokenExpires: vendorsTable.activationTokenExpires,
+
                 createdAt: vendorsTable.createdAt,
                 approvedAt: vendorsTable.approvedAt,
             })
             .from(vendorsTable)
             .orderBy(vendorsTable.createdAt);
 
-        return NextResponse.json({ success: true, vendors }, { status: 200 });
+        return NextResponse.json(
+            { success: true, vendors },
+            { status: 200 },
+        );
     } catch (error) {
         console.error("Vendor list fetch error:", error);
         return NextResponse.json(

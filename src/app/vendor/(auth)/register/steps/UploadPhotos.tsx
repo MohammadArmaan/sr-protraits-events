@@ -2,6 +2,8 @@
 
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { X, Upload } from "lucide-react";
 
 type Props = {
@@ -9,6 +11,10 @@ type Props = {
     previews: string[];
     setFiles: React.Dispatch<React.SetStateAction<File[]>>;
     setPreviews: React.Dispatch<React.SetStateAction<string[]>>;
+
+    // 🔥 NEW
+    catalogTitle: string;
+    setCatalogTitle: (value: string) => void;
 };
 
 export default function UploadPhotos({
@@ -16,30 +22,52 @@ export default function UploadPhotos({
     previews,
     setFiles,
     setPreviews,
+    catalogTitle,
+    setCatalogTitle,
 }: Props) {
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [isDragging, setIsDragging] = useState(false);
 
-function handleFiles(selected: File[]) {
-    selected.forEach((file) => {
-        // Save file
-        setFiles(prev => [...prev, file]);
+    function handleFiles(selected: File[]) {
+        selected.forEach((file) => {
+            setFiles((prev) => [...prev, file]);
 
-        // Preview
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setPreviews(prev => [...prev, reader.result as string]);
-        };
-        reader.readAsDataURL(file);
-    });
-}
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPreviews((prev) => [...prev, reader.result as string]);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-6">
+
+            {/* CATALOG TITLE */}
+            <div>
+                <Label htmlFor="catalogTitle">
+                    Catalog Title <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                    id="catalogTitle"
+                    placeholder="e.g. Wedding Photography"
+                    value={catalogTitle}
+                    onChange={(e) => setCatalogTitle(e.target.value)}
+                    className="rounded-xl bg-muted border-border"
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                    This title will represent this service in your profile.
+                </p>
+            </div>
+
             {/* DRAG AREA */}
             <div
                 className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-colors
-                    ${isDragging ? "border-primary bg-primary/10" : "border-border bg-muted"}
+                    ${
+                        isDragging
+                            ? "border-primary bg-primary/10"
+                            : "border-border bg-muted"
+                    }
                 `}
                 onDragEnter={(e) => {
                     e.preventDefault();
@@ -90,15 +118,20 @@ function handleFiles(selected: File[]) {
                             key={idx}
                             className="relative aspect-square rounded-xl overflow-hidden group"
                         >
-                            <img src={src} className="w-full h-full object-cover" />
+                            <img
+                                src={src}
+                                className="w-full h-full object-cover"
+                            />
                             <button
                                 type="button"
                                 className="absolute top-2 right-2 bg-destructive text-destructive-foreground rounded-full p-2 opacity-0 group-hover:opacity-100"
                                 onClick={() => {
-                                    const newFiles = files.filter((_, i) => i !== idx);
-                                    const newPrev = previews.filter((_, i) => i !== idx);
-                                    setFiles(newFiles);
-                                    setPreviews(newPrev);
+                                    setFiles((prev) =>
+                                        prev.filter((_, i) => i !== idx),
+                                    );
+                                    setPreviews((prev) =>
+                                        prev.filter((_, i) => i !== idx),
+                                    );
                                 }}
                             >
                                 <X />

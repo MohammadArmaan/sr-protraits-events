@@ -16,4 +16,9 @@ export const PROFILE_EDIT_FIELD_MAP: Record<
     phone: (p) => p.phone,
     address: (p) => p.address,
     businessDescription: (p) => p.businessDescription,
+
+    gstNumber: (p) => p.gstNumber,
+    yearsOfExperience: (p) => p.yearsOfExperience,
+    successfulEventsCompleted: (p) =>
+        p.successfulEventsCompleted,
 };

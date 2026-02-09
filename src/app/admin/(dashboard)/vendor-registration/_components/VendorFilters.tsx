@@ -33,8 +33,10 @@ export function VendorFilters({
                 </SelectTrigger>
                 <SelectContent>
                     <SelectItem value="ALL">All</SelectItem>
-                    <SelectItem value="BUSINESS_PHOTOS_UPLOADED">Pending</SelectItem>
-                    <SelectItem value="AWAITING_ACTIVATION">Approved</SelectItem>
+                    <SelectItem value="CATALOG_CREATED">Pending</SelectItem>
+                    <SelectItem value="AWAITING_ACTIVATION">
+                        Approved
+                    </SelectItem>
                     <SelectItem value="ACTIVE">Active</SelectItem>
                     <SelectItem value="REJECTED">Rejected</SelectItem>
                 </SelectContent>
