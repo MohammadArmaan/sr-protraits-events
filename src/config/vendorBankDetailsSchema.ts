@@ -44,7 +44,7 @@ export const vendorBankDetailsTable = pgTable("vendor_bank_details", {
 
     //  Pending Changes (EDIT FLOW)
     pendingChanges: jsonb(
-        "pendingChanges"
+        "pendingChanges",
     ).$type<VendorBankPendingChanges | null>(),
     // example:
     // {
@@ -56,6 +56,12 @@ export const vendorBankDetailsTable = pgTable("vendor_bank_details", {
     adminApprovedAt: timestamp("adminApprovedAt", {
         withTimezone: true,
     }),
+
+    /* -------- Verification metadata -------- */
+    isVerified: boolean("isVerified").default(false),
+
+    verificationRefId: varchar("verificationRefId", { length: 255 }),
+    verifiedAt: timestamp("verifiedAt", { withTimezone: true }),
 
     /* -------- Audit -------- */
     createdAt: timestamp("createdAt", {
