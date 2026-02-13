@@ -43,6 +43,8 @@ export async function GET(
 
                 approvalExpiresAt: vendorBookingsTable.approvalExpiresAt,
 
+                notes: vendorBookingsTable.notes,
+
                 product: {
                     title: vendorProductsTable.title,
                 },

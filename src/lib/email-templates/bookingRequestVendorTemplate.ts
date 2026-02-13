@@ -34,7 +34,7 @@ export function bookingRequestVendorTemplate(
 
           <p style="font-size:15px;color:#555;">
             Please approve or reject this request within
-            <strong>3 hours</strong>.
+            <strong>8 hours</strong>.
           </p>
 
           <a href="${process.env.DOMAIN}/vendor/bookings/${bookingUuid}"

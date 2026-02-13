@@ -21,11 +21,10 @@ export async function GET() {
                 rating: vendorProductsTable.rating,
                 ratingCount: vendorProductsTable.ratingCount,
 
-                businessName: vendorProductsTable.businessName,
                 occupation: vendorProductsTable.occupation,
 
                 images: vendorProductsTable.images,
-                featuredImageIndex: vendorProductsTable.featuredImageIndex,
+                featuredImageUrl: vendorProductsTable.featuredImageUrl,
             })
             .from(vendorProductsTable)
             .innerJoin(

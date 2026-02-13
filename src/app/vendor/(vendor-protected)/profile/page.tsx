@@ -26,6 +26,7 @@ interface VendorProfileState {
     phone: string;
     address: string;
     email: string;
+    points: number;
     businessDescription: string;
 
     yearsOfExperience: number;
@@ -74,6 +75,7 @@ export default function VendorProfilePage() {
                 phone: "",
                 address: "",
                 email: "",
+                points: 0,
                 businessDescription: "",
                 yearsOfExperience: 0,
                 successfulEventsCompleted: 0,
@@ -89,6 +91,7 @@ export default function VendorProfilePage() {
             phone: vendor.phone,
             address: vendor.address,
             email: vendor.email,
+            points: vendor.points,
             businessDescription: vendor.businessDescription ?? "",
             yearsOfExperience: vendor.yearsOfExperience,
             successfulEventsCompleted: vendor.successfulEventsCompleted,

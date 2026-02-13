@@ -4,13 +4,13 @@ import { db } from "@/config/db";
 import { vendorReviewsTable } from "@/config/vendorReviewsSchema";
 import { vendorBookingsTable } from "@/config/vendorBookingsSchema";
 import { vendorProductsTable } from "@/config/vendorProductsSchema";
-import { and, desc, eq, lt } from "drizzle-orm";
+import { and, desc, eq, lt, sql } from "drizzle-orm";
 import { REVIEW_PAGE_SIZE } from "@/lib/constants";
 import { vendorsTable } from "@/config/vendorsSchema";
 
 export async function POST(
     req: NextRequest,
-    context: { params: Promise<{ uuid: string }> }
+    context: { params: Promise<{ uuid: string }> },
 ) {
     try {
         const { uuid } = await context.params;
@@ -21,7 +21,7 @@ export async function POST(
         if (!token) {
             return NextResponse.json(
                 { error: "Missing token" },
-                { status: 401 }
+                { status: 401 },
             );
         }
 
@@ -33,7 +33,7 @@ export async function POST(
         } catch {
             return NextResponse.json(
                 { error: "Invalid or expired token" },
-                { status: 401 }
+                { status: 401 },
             );
         }
 
@@ -47,14 +47,14 @@ export async function POST(
         if (!bookingId || !rating) {
             return NextResponse.json(
                 { error: "bookingId and rating are required" },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
         if (rating < 1 || rating > 5) {
             return NextResponse.json(
                 { error: "Rating must be between 1 and 5" },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
@@ -70,7 +70,7 @@ export async function POST(
         if (!product) {
             return NextResponse.json(
                 { error: "Invalid product" },
-                { status: 404 }
+                { status: 404 },
             );
         }
 
@@ -86,7 +86,7 @@ export async function POST(
         if (!booking) {
             return NextResponse.json(
                 { error: "Invalid booking" },
-                { status: 404 }
+                { status: 404 },
             );
         }
 
@@ -96,28 +96,28 @@ export async function POST(
         if (booking.status !== "COMPLETED") {
             return NextResponse.json(
                 { error: "Event not completed yet" },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
         if (booking.bookedByVendorId !== reviewerVendorId) {
             return NextResponse.json(
                 { error: "Not allowed to review this booking" },
-                { status: 403 }
+                { status: 403 },
             );
         }
 
         if (booking.vendorProductId !== product.id) {
             return NextResponse.json(
                 { error: "Booking does not belong to this product" },
-                { status: 403 }
+                { status: 403 },
             );
         }
 
         if (booking.vendorId === booking.bookedByVendorId) {
             return NextResponse.json(
                 { error: "Self review not allowed" },
-                { status: 403 }
+                { status: 403 },
             );
         }
 
@@ -133,11 +133,22 @@ export async function POST(
                 rating,
                 comment,
             });
+
+            /* -----------------------------
+   Add Rating Points to Vendor
+----------------------------- */
+            await db
+                .update(vendorsTable)
+                .set({
+                    points: sql`${vendorsTable.points} + ${rating}`,
+                    updatedAt: new Date(),
+                })
+                .where(eq(vendorsTable.id, booking.vendorId));
         } catch (err) {
             // UNIQUE violation → review already exists
             return NextResponse.json(
                 { error: "Review already submitted" },
-                { status: 409 }
+                { status: 409 },
             );
         }
 
@@ -159,20 +170,20 @@ export async function POST(
 
         return NextResponse.json(
             { success: true, message: "Review submitted successfully" },
-            { status: 201 }
+            { status: 201 },
         );
     } catch (error) {
         console.error("Create review error:", error);
         return NextResponse.json(
             { error: "Internal server error" },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }
 
 export async function GET(
     req: NextRequest,
-    context: { params: Promise<{ uuid: string }> }
+    context: { params: Promise<{ uuid: string }> },
 ) {
     try {
         const { uuid } = await context.params;
@@ -187,7 +198,7 @@ export async function GET(
         if (!product) {
             return NextResponse.json(
                 { error: "Invalid product" },
-                { status: 404 }
+                { status: 404 },
             );
         }
 
@@ -206,27 +217,15 @@ export async function GET(
             .from(vendorReviewsTable)
             .innerJoin(
                 vendorsTable,
-                eq(
-                    vendorsTable.id,
-                    vendorReviewsTable.reviewerVendorId
-                )
+                eq(vendorsTable.id, vendorReviewsTable.reviewerVendorId),
             )
             .where(
                 cursor
                     ? and(
-                          eq(
-                              vendorReviewsTable.vendorProductId,
-                              product.id
-                          ),
-                          lt(
-                              vendorReviewsTable.createdAt,
-                              new Date(cursor)
-                          )
+                          eq(vendorReviewsTable.vendorProductId, product.id),
+                          lt(vendorReviewsTable.createdAt, new Date(cursor)),
                       )
-                    : eq(
-                          vendorReviewsTable.vendorProductId,
-                          product.id
-                      )
+                    : eq(vendorReviewsTable.vendorProductId, product.id),
             )
             .orderBy(desc(vendorReviewsTable.createdAt))
             .limit(REVIEW_PAGE_SIZE);
@@ -242,14 +241,14 @@ export async function GET(
         console.error("Fetch reviews error:", error);
         return NextResponse.json(
             { error: "Internal server error" },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }
 
 export async function DELETE(
     req: NextRequest,
-    context: { params: Promise<{ uuid: string }> }
+    context: { params: Promise<{ uuid: string }> },
 ) {
     try {
         const { uuid } = await context.params;
@@ -261,20 +260,19 @@ export async function DELETE(
         if (!token) {
             return NextResponse.json(
                 { error: "Missing token" },
-                { status: 401 }
+                { status: 401 },
             );
         }
 
         let decoded: { vendorId: number };
         try {
-            decoded = jwt.verify(
-                token,
-                process.env.JWT_SECRET!
-            ) as { vendorId: number };
+            decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
+                vendorId: number;
+            };
         } catch {
             return NextResponse.json(
                 { error: "Invalid or expired token" },
-                { status: 401 }
+                { status: 401 },
             );
         }
 
@@ -288,7 +286,7 @@ export async function DELETE(
         if (!bookingId) {
             return NextResponse.json(
                 { error: "bookingId is required" },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
@@ -304,7 +302,7 @@ export async function DELETE(
         if (!product) {
             return NextResponse.json(
                 { error: "Invalid product" },
-                { status: 404 }
+                { status: 404 },
             );
         }
 
@@ -320,14 +318,14 @@ export async function DELETE(
         if (!review) {
             return NextResponse.json(
                 { error: "Review not found" },
-                { status: 404 }
+                { status: 404 },
             );
         }
 
         if (review.reviewerVendorId !== reviewerVendorId) {
             return NextResponse.json(
                 { error: "Not allowed to delete this review" },
-                { status: 403 }
+                { status: 403 },
             );
         }
 
@@ -337,6 +335,17 @@ export async function DELETE(
         await db
             .delete(vendorReviewsTable)
             .where(eq(vendorReviewsTable.id, review.id));
+
+        /* -----------------------------
+   Revert Rating Points
+----------------------------- */
+        await db
+            .update(vendorsTable)
+            .set({
+                points: sql`GREATEST(${vendorsTable.points} - ${review.rating}, 0)`,
+                updatedAt: new Date(),
+            })
+            .where(eq(vendorsTable.id, review.vendorId));
 
         /* -----------------------------
            Update product rating
@@ -349,8 +358,7 @@ export async function DELETE(
         const newRating =
             newCount === 0
                 ? 0
-                : ((oldRating * oldCount - Number(review.rating)) /
-                      newCount);
+                : (oldRating * oldCount - Number(review.rating)) / newCount;
 
         await db
             .update(vendorProductsTable)
@@ -362,14 +370,14 @@ export async function DELETE(
 
         return NextResponse.json(
             { success: true, message: "Review deleted successfully" },
-            { status: 200 }
+            { status: 200 },
         );
     } catch (error) {
         console.error("Delete review error:", error);
 
         return NextResponse.json(
             { error: "Internal server error" },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }

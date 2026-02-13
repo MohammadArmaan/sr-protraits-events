@@ -35,13 +35,20 @@ export interface AvailabilityResponse {
 ---------------------------------- */
 export interface CreateBookingRequest {
     vendorProductId: number;
-    startDate: string; // YYYY-MM-DD
-    endDate?: string; // YYYY-MM-DD
-    startTime?: string; // HH:mm
-    endTime?: string; // HH:mm
+    startDate: string;
+    endDate: string;
+
+    // multi-day
+    startTime?: string;
+    endTime?: string;
+
+    // session-based
+    sessionHours?: number;
+
     couponCode?: string;
     notes?: string;
 }
+
 
 /* ----------------------------------
  Coupon Code Validation
@@ -118,7 +125,7 @@ export interface BookingDecisionDetails {
         endDate: string;
         startTime?: string | null;
         endTime?: string | null;
-
+        notes?: string;
         totalDays: number;
 
         // 💰 PRICING (BACKEND SOURCE OF TRUTH)
@@ -132,6 +139,7 @@ export interface BookingDecisionDetails {
         product: {
             title: string;
         };
+
 
         vendor: {
             businessName: string;
@@ -239,15 +247,9 @@ export interface BookingDetailsResponse {
     };
     requester: {
         businessName: string;
-        email: string;
-        phone: string;
-        address: string;
     };
     provider: {
         businessName: string;
-        email: string;
-        phone: string;
-        address: string;
     };
     payment: {
         totalAmount: number;

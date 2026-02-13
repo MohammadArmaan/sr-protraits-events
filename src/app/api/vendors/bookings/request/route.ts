@@ -17,7 +17,7 @@ type BookingInsert = InferInsertModel<typeof vendorBookingsTable>;
 /* ------------------------------------------------ */
 /* Helpers                                          */
 /* ------------------------------------------------ */
-const HOURS_3 = 3 * 60 * 60 * 1000;
+const HOURS_8 = 8 * 60 * 60 * 1000;
 
 function diffDays(start: Date, end: Date) {
     const diff = end.getTime() - start.getTime();
@@ -236,7 +236,7 @@ export async function POST(req: NextRequest) {
         const [vendor] = await db
             .select({
                 email: vendorsTable.email,
-                businessName: vendorsTable.businessName,
+                fullName: vendorsTable.fullName,
             })
             .from(vendorsTable)
             .where(eq(vendorsTable.id, product.vendorId));
@@ -294,7 +294,7 @@ export async function POST(req: NextRequest) {
             remainingAmount: num(remainingAmount),
 
             status: "REQUESTED",
-            approvalExpiresAt: new Date(Date.now() + HOURS_3),
+            approvalExpiresAt: new Date(Date.now() + HOURS_8),
 
             notes: notes ?? null,
             source: "WEB",
@@ -310,7 +310,7 @@ export async function POST(req: NextRequest) {
             to: vendor.email,
             subject: "New Booking Request – Action Required ⏳",
             html: bookingRequestVendorTemplate(
-                vendor.businessName,
+                vendor.fullName,
                 product.title,
                 booking.uuid,
                 booking.approvalExpiresAt

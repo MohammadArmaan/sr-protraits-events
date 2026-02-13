@@ -9,6 +9,7 @@ import { vendorProductUpdatedTemplate } from "@/lib/email-templates/vendorProduc
 import { vendorProductDeletedEmailTemplate } from "@/lib/email-templates/vendorProductDeletedTemplate";
 import { vendorBookingsTable } from "@/config/vendorBookingsSchema";
 import { requireAdmin } from "@/lib/admin/requireAdmin";
+import { vendorProductImagesTable } from "@/config/vendorProductImageSchema";
 
 interface AdminTokenPayload {
     adminId: number;
@@ -17,13 +18,16 @@ interface AdminTokenPayload {
 
 export async function GET(
     req: NextRequest,
-    context: { params: Promise<{ id: string }> }
+    context: { params: { id: string } },
 ) {
     try {
-        requireAdmin(req);
+        /* ---------------- AUTH ---------------- */
+        await requireAdmin(req);
 
+        /* ---------------- PARAM ---------------- */
         const { id } = await context.params;
         const productId = Number(id);
+
         if (!Number.isInteger(productId)) {
             return NextResponse.json(
                 { error: "Invalid product id" },
@@ -31,6 +35,7 @@ export async function GET(
             );
         }
 
+        /* ---------------- FETCH PRODUCT ---------------- */
         const [product] = await db
             .select()
             .from(vendorProductsTable)
@@ -44,12 +49,80 @@ export async function GET(
             );
         }
 
-        return NextResponse.json({
-            success: true,
-            product,
+        /* ---------------- FETCH PRODUCT IMAGES ---------------- */
+        const images = await db
+            .select({
+                id: vendorProductImagesTable.id,
+                catalogId: vendorProductImagesTable.catalogId,
+                imageUrl: vendorProductImagesTable.imageUrl,
+                isFeatured: vendorProductImagesTable.isFeatured,
+                sortOrder: vendorProductImagesTable.sortOrder,
+            })
+            .from(vendorProductImagesTable)
+            .where(eq(vendorProductImagesTable.productId, productId));
+
+        /* ---------------- GROUP BY CATALOG ---------------- */
+        const imagesByCatalog: Record<
+            number,
+            {
+                images: typeof images;
+                featuredImageId: number | null;
+            }
+        > = {};
+
+        for (const img of images) {
+            if (!imagesByCatalog[img.catalogId]) {
+                imagesByCatalog[img.catalogId] = {
+                    images: [],
+                    featuredImageId: null,
+                };
+            }
+
+            imagesByCatalog[img.catalogId].images.push(img);
+
+            if (img.isFeatured) {
+                imagesByCatalog[img.catalogId].featuredImageId = img.id;
+            }
+        }
+
+        /* ---------------- SORT IMAGES ---------------- */
+        Object.values(imagesByCatalog).forEach((group) => {
+            group.images.sort(
+                (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0),
+            );
         });
+
+        /* ---------------- CATALOG IDS ---------------- */
+        const catalogIds = Object.keys(imagesByCatalog).map(Number);
+
+        /* ---------------- RESPONSE ---------------- */
+        return NextResponse.json(
+            {
+                success: true,
+                product,
+                catalogIds,
+                imagesByCatalog,
+            },
+            { status: 200 },
+        );
     } catch (error) {
         console.error("Get Product Error:", error);
+
+        if (error instanceof Error) {
+            if (error.message === "UNAUTHORIZED") {
+                return NextResponse.json(
+                    { error: "Unauthorized" },
+                    { status: 401 },
+                );
+            }
+            if (error.message === "FORBIDDEN") {
+                return NextResponse.json(
+                    { error: "Forbidden" },
+                    { status: 403 },
+                );
+            }
+        }
+
         return NextResponse.json(
             { error: "Internal server error" },
             { status: 500 },
@@ -57,16 +130,16 @@ export async function GET(
     }
 }
 
+
 export async function PUT(
     req: NextRequest,
-    context: { params: Promise<{ id: string }> }
+    context: { params: { id: string } },
 ) {
     try {
-        /* ------------------------------------------------------------------ */
-        /*                               ID                                   */
-        /* ------------------------------------------------------------------ */
-        const {id} = await context.params
+        /* ---------------- ID ---------------- */
+        const { id } = await context.params;
         const productId = Number(id);
+
         if (!Number.isInteger(productId)) {
             return NextResponse.json(
                 { error: "Invalid product id" },
@@ -74,9 +147,7 @@ export async function PUT(
             );
         }
 
-        /* ------------------------------------------------------------------ */
-        /*                              AUTH                                  */
-        /* ------------------------------------------------------------------ */
+        /* ---------------- AUTH ---------------- */
         const token = req.cookies.get("admin_token")?.value;
         if (!token) {
             return NextResponse.json(
@@ -97,13 +168,12 @@ export async function PUT(
             );
         }
 
-        /* ------------------------------------------------------------------ */
-        /*                         FETCH PRODUCT                               */
-        /* ------------------------------------------------------------------ */
+        /* ---------------- FETCH PRODUCT ---------------- */
         const [existingProduct] = await db
             .select()
             .from(vendorProductsTable)
-            .where(eq(vendorProductsTable.id, productId));
+            .where(eq(vendorProductsTable.id, productId))
+            .limit(1);
 
         if (!existingProduct) {
             return NextResponse.json(
@@ -112,35 +182,10 @@ export async function PUT(
             );
         }
 
-        /* ------------------------------------------------------------------ */
-        /*                         FETCH VENDOR                                */
-        /* ------------------------------------------------------------------ */
-        const [vendor] = await db
-            .select({
-                email: vendorsTable.email,
-                businessName: vendorsTable.businessName,
-                isApproved: vendorsTable.isApproved,
-            })
-            .from(vendorsTable)
-            .where(eq(vendorsTable.id, existingProduct.vendorId));
-
-        if (!vendor || !vendor.isApproved) {
-            return NextResponse.json(
-                { error: "Vendor is not approved" },
-                { status: 400 },
-            );
-        }
-
-        /* ------------------------------------------------------------------ */
-        /*                               BODY                                  */
-        /* ------------------------------------------------------------------ */
-        const body = await req.json();
-
+        /* ---------------- BODY ---------------- */
         const {
             title,
             description,
-            images,
-            featuredImageIndex,
 
             basePriceSingleDay,
             basePriceMultiDay,
@@ -151,11 +196,11 @@ export async function PUT(
 
             isFeatured,
             isActive,
-        } = body;
+            isPriority,
+            isSessionBased,
+        } = await req.json();
 
-        /* ------------------------------------------------------------------ */
-        /*                         PRICE VALIDATION                            */
-        /* ------------------------------------------------------------------ */
+        /* ---------------- PRICE NORMALIZATION ---------------- */
         const resolvedSingle =
             basePriceSingleDay !== undefined
                 ? Number(basePriceSingleDay)
@@ -173,9 +218,7 @@ export async function PUT(
             );
         }
 
-        /* ------------------------------------------------------------------ */
-        /*                       ADVANCE NORMALIZATION                         */
-        /* ------------------------------------------------------------------ */
+        /* ---------------- ADVANCE NORMALIZATION ---------------- */
         const resolvedAdvanceType =
             advanceType ?? existingProduct.advanceType;
 
@@ -184,73 +227,37 @@ export async function PUT(
                 ? Number(advanceValue)
                 : Number(existingProduct.advanceValue);
 
-        if (isNaN(normalizedAdvanceValue)) {
+        if (Number.isNaN(normalizedAdvanceValue)) {
             return NextResponse.json(
                 { error: "Advance value must be a valid number" },
                 { status: 400 },
             );
         }
 
-        const maxBasePrice = Math.max(resolvedSingle, resolvedMulti);
-
-        if (resolvedAdvanceType === "PERCENTAGE") {
-            if (
-                normalizedAdvanceValue <= 0 ||
-                normalizedAdvanceValue > 100
-            ) {
-                return NextResponse.json(
-                    {
-                        error:
-                            "Advance percentage must be between 1 and 100",
-                    },
-                    { status: 400 },
-                );
-            }
-        }
-
-        if (resolvedAdvanceType === "FIXED") {
-            if (
-                normalizedAdvanceValue <= 0 ||
-                normalizedAdvanceValue >= maxBasePrice
-            ) {
-                return NextResponse.json(
-                    {
-                        error:
-                            "Fixed advance must be greater than 0 and less than product price",
-                    },
-                    { status: 400 },
-                );
-            }
-        }
-
-        /* ------------------------------------------------------------------ */
-        /*                         IMAGE VALIDATION                            */
-        /* ------------------------------------------------------------------ */
-        const finalImages = images ?? existingProduct.images;
-
-        if (!Array.isArray(finalImages) || finalImages.length === 0) {
-            return NextResponse.json(
-                { error: "At least one image is required" },
-                { status: 400 },
-            );
-        }
-
-        const finalFeaturedIndex =
-            featuredImageIndex ?? existingProduct.featuredImageIndex;
-
         if (
-            finalFeaturedIndex < 0 ||
-            finalFeaturedIndex >= finalImages.length
+            resolvedAdvanceType === "PERCENTAGE" &&
+            (normalizedAdvanceValue <= 0 || normalizedAdvanceValue > 100)
         ) {
             return NextResponse.json(
-                { error: "Invalid featuredImageIndex" },
+                { error: "Advance percentage must be between 1 and 100" },
                 { status: 400 },
             );
         }
 
-        /* ------------------------------------------------------------------ */
-        /*                           UPDATE                                   */
-        /* ------------------------------------------------------------------ */
+        if (
+            resolvedAdvanceType === "FIXED" &&
+            normalizedAdvanceValue >= Math.max(resolvedSingle, resolvedMulti)
+        ) {
+            return NextResponse.json(
+                {
+                    error:
+                        "Fixed advance must be less than the product price",
+                },
+                { status: 400 },
+            );
+        }
+
+        /* ---------------- UPDATE PRODUCT ---------------- */
         const [updatedProduct] = await db
             .update(vendorProductsTable)
             .set({
@@ -260,50 +267,29 @@ export async function PUT(
                         ? description
                         : existingProduct.description,
 
-                images: finalImages,
-                featuredImageIndex: finalFeaturedIndex,
-
                 basePriceSingleDay: resolvedSingle.toFixed(2),
                 basePriceMultiDay: resolvedMulti.toFixed(2),
 
-                pricingUnit:
-                    pricingUnit === "PER_EVENT"
-                        ? "PER_EVENT"
-                        : "PER_DAY",
+                pricingUnit: isSessionBased ? "PER_EVENT" : "PER_DAY",
 
                 advanceType: resolvedAdvanceType,
                 advanceValue: normalizedAdvanceValue.toFixed(2),
 
-                isFeatured:
-                    isFeatured ?? existingProduct.isFeatured,
+                isFeatured: isFeatured ?? existingProduct.isFeatured,
                 isActive: isActive ?? existingProduct.isActive,
+                isPriority: isPriority ?? existingProduct.isPriority,
 
+                isSessionBased:
+                    isSessionBased ?? existingProduct.isSessionBased,
+
+                maxSessionHours: isSessionBased ? 8 : null,
                 updatedAt: new Date(),
             })
             .where(eq(vendorProductsTable.id, productId))
             .returning();
 
-        /* ------------------------------------------------------------------ */
-        /*                               EMAIL                                  */
-        /* ------------------------------------------------------------------ */
-        await sendEmail({
-            to: vendor.email,
-            subject: "Your Product Has Been Updated",
-            html: vendorProductUpdatedTemplate(
-                vendor.businessName,
-                updatedProduct.title,
-                updatedProduct.uuid,
-            ),
-        });
-
-        /* ------------------------------------------------------------------ */
-        /*                             RESPONSE                                */
-        /* ------------------------------------------------------------------ */
         return NextResponse.json(
-            {
-                success: true,
-                product: updatedProduct,
-            },
+            { success: true, product: updatedProduct },
             { status: 200 },
         );
     } catch (error) {
@@ -316,11 +302,13 @@ export async function PUT(
 }
 
 
+
 export async function DELETE(
     req: NextRequest,
-    context: { params: Promise<{ id: string }> }
+    context: { params: { id: string } },
 ) {
     try {
+        /* ---------------- ID ---------------- */
         const { id } = await context.params;
         const productId = Number(id);
 
@@ -331,7 +319,7 @@ export async function DELETE(
             );
         }
 
-        /* ---------- AUTH ---------- */
+        /* ---------------- AUTH ---------------- */
         const token = req.cookies.get("admin_token")?.value;
         if (!token) {
             return NextResponse.json(
@@ -346,19 +334,24 @@ export async function DELETE(
         ) as AdminTokenPayload;
 
         if (!["admin", "superadmin"].includes(decoded.role)) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+            return NextResponse.json(
+                { error: "Forbidden" },
+                { status: 403 },
+            );
         }
 
-        /* ---------- FETCH PRODUCT ---------- */
+        /* ---------------- FETCH PRODUCT ---------------- */
         const [product] = await db
             .select({
                 id: vendorProductsTable.id,
                 title: vendorProductsTable.title,
                 uuid: vendorProductsTable.uuid,
                 vendorId: vendorProductsTable.vendorId,
+                businessName: vendorProductsTable.businessName,
             })
             .from(vendorProductsTable)
-            .where(eq(vendorProductsTable.id, productId));
+            .where(eq(vendorProductsTable.id, productId))
+            .limit(1);
 
         if (!product) {
             return NextResponse.json(
@@ -367,7 +360,7 @@ export async function DELETE(
             );
         }
 
-        /* ---------- CHECK ACTIVE BOOKINGS ---------- */
+        /* ---------------- CHECK ACTIVE BOOKINGS ---------------- */
         const activeBooking = await db
             .select({ id: vendorBookingsTable.id })
             .from(vendorBookingsTable)
@@ -387,43 +380,53 @@ export async function DELETE(
         if (activeBooking.length > 0) {
             return NextResponse.json(
                 {
-                    error: "Cannot delete product with active or upcoming bookings",
+                    error:
+                        "Cannot delete product with active or upcoming bookings",
                 },
                 { status: 409 },
             );
         }
 
-        /* ---------- FETCH VENDOR ---------- */
+        /* ---------------- FETCH VENDOR ---------------- */
         const [vendor] = await db
             .select({
                 email: vendorsTable.email,
                 businessName: vendorsTable.businessName,
+                fullName: vendorsTable.fullName,
+                isApproved: vendorsTable.isApproved,
             })
             .from(vendorsTable)
-            .where(eq(vendorsTable.id, product.vendorId));
+            .where(eq(vendorsTable.id, product.vendorId))
+            .limit(1);
 
-        if (!vendor) {
+        if (!vendor || !vendor.isApproved) {
             return NextResponse.json(
-                { error: "Vendor not found" },
-                { status: 404 },
+                { error: "Vendor not approved or not found" },
+                { status: 400 },
             );
         }
 
-        /* ---------- DELETE PRODUCT ---------- */
+        const resolvedBusinessName =
+            product.businessName ??
+            vendor.businessName ??
+            vendor.fullName;
+
+        /* ---------------- DELETE PRODUCT ---------------- */
         await db
             .delete(vendorProductsTable)
             .where(eq(vendorProductsTable.id, productId));
 
-        /* ---------- SEND EMAIL ---------- */
+        /* ---------------- EMAIL ---------------- */
         await sendEmail({
             to: vendor.email,
             subject: "Product Removed from Vendor Listing",
             html: vendorProductDeletedEmailTemplate(
-                vendor.businessName,
+                resolvedBusinessName,
                 product.title,
             ),
         });
 
+        /* ---------------- RESPONSE ---------------- */
         return NextResponse.json(
             {
                 success: true,
@@ -440,3 +443,5 @@ export async function DELETE(
         );
     }
 }
+
+

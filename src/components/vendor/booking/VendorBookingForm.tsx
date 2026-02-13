@@ -8,7 +8,7 @@ import {
     startOfDay,
     format,
 } from "date-fns";
-import { Clock, Tag } from "lucide-react";
+import { AlertTriangle, Clock, Tag } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -24,17 +24,16 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-
 import { DateRangePicker } from "@/components/ui/date-picker";
+
 import { useCreateVendorBooking } from "@/hooks/queries/useCreateVendorBooking";
 import { useValidateVendorCoupon } from "@/hooks/queries/useValidateVendorCoupon";
 import { useActiveBookingStatus } from "@/hooks/queries/useActiveBookingStatus";
 import { useBookingAvailability } from "@/hooks/queries/useBookingAvailability";
 import { ValidateCouponResponse } from "@/types/vendor-booking";
+import { Textarea } from "@/components/ui/textarea";
 
-/* ----------------------------------
- Types
----------------------------------- */
+/* ---------------------------------- */
 interface VendorBookingFormProps {
     vendorId: number;
     vendorProductId: number;
@@ -43,18 +42,12 @@ interface VendorBookingFormProps {
     advanceType?: "PERCENTAGE" | "FIXED";
     advanceValue?: number;
     loggedInVendorId?: number;
+    isSessionBased?: boolean;
+    maxSessionHours?: number;
 }
 
-/* ----------------------------------
- Constants
----------------------------------- */
-const MIN_HOUR = 9;
-const MAX_HOUR = 21;
-const MAX_DAYS = 5;
+/* ---------------------------------- */
 
-/* ----------------------------------
- Component
----------------------------------- */
 export const VendorBookingForm = ({
     vendorId,
     vendorProductId,
@@ -63,55 +56,66 @@ export const VendorBookingForm = ({
     advanceType,
     advanceValue,
     loggedInVendorId,
+    isSessionBased = false,
+    maxSessionHours = 8,
 }: VendorBookingFormProps) => {
     const router = useRouter();
 
     /* ---------------- State ---------------- */
+
     const [dateRange, setDateRange] = useState<DateRange>();
     const [startTime, setStartTime] = useState<string>();
-    const [endTime, setEndTime] = useState<string>();
-    const [notes, setNotes] = useState("");
+    const [sessionHours, setSessionHours] = useState<string>("");
 
+    const [notes, setNotes] = useState("");
     const [couponInput, setCouponInput] = useState("");
     const [couponPreview, setCouponPreview] =
         useState<ValidateCouponResponse | null>(null);
 
     /* ---------------- Hooks ---------------- */
+
     const validateCoupon = useValidateVendorCoupon();
     const createBooking = useCreateVendorBooking();
-
-    const { data: availabilityData } =
-        useBookingAvailability(vendorProductId);
-
+    const { data: availabilityData } = useBookingAvailability(vendorProductId);
     const { data: activeBooking } = useActiveBookingStatus(
         vendorProductId,
-        loggedInVendorId ?? 0
+        loggedInVendorId ?? 0,
     );
 
     /* ---------------- Guards ---------------- */
+
     const isSelfBooking =
         loggedInVendorId !== undefined && loggedInVendorId === vendorId;
 
     const isAlreadyBookedByMe = activeBooking?.hasActiveBooking ?? false;
 
-    /* ---------------- Derived state ---------------- */
+    /* ---------------- Multi-day logic ---------------- */
+
     const isMultiDay =
-        dateRange?.from && dateRange?.to
-            ? !isSameDay(dateRange.from, dateRange.to)
-            : false;
+        !isSessionBased &&
+        dateRange?.from &&
+        dateRange?.to &&
+        !isSameDay(dateRange.from, dateRange.to);
 
     const totalDays = useMemo(() => {
         if (!dateRange?.from || !dateRange?.to) return 1;
         return differenceInCalendarDays(dateRange.to, dateRange.from) + 1;
     }, [dateRange]);
 
-    const baseAmount = useMemo(() => {
-        return isMultiDay
-            ? basePriceMultiDay * totalDays
-            : basePriceSingleDay;
-    }, [isMultiDay, totalDays, basePriceSingleDay, basePriceMultiDay]);
-
     /* ---------------- Pricing ---------------- */
+
+    const baseAmount = useMemo(() => {
+        if (isSessionBased) return basePriceSingleDay;
+
+        return isMultiDay ? basePriceMultiDay * totalDays : basePriceSingleDay;
+    }, [
+        isSessionBased,
+        isMultiDay,
+        totalDays,
+        basePriceSingleDay,
+        basePriceMultiDay,
+    ]);
+
     const discountAmount = couponPreview?.discountAmount ?? 0;
     const finalAmount = couponPreview?.finalAmount ?? baseAmount;
 
@@ -127,7 +131,8 @@ export const VendorBookingForm = ({
 
     const remainingAmount = Math.max(finalAmount - advanceAmount, 0);
 
-    /* ---------------- Disable dates ---------------- */
+    /* ---------------- Date disabling ---------------- */
+
     const isDateDisabled = (date: Date) => {
         const today = startOfDay(new Date());
         const current = startOfDay(date);
@@ -144,44 +149,52 @@ export const VendorBookingForm = ({
     };
 
     /* ---------------- Time slots ---------------- */
+
     const timeSlots = useMemo(() => {
         const slots: string[] = [];
-        for (let h = MIN_HOUR; h <= MAX_HOUR; h++) {
+        for (let h = 0; h < 24; h++) {
             slots.push(`${h.toString().padStart(2, "0")}:00`);
         }
         return slots;
     }, []);
 
-    /* ---------------- Date change ---------------- */
-    const handleDateChange = (range: DateRange | undefined) => {
-        if (range?.from && range?.to) {
-            const days =
-                differenceInCalendarDays(range.to, range.from) + 1;
+    const hourOptions = useMemo(() => {
+        const arr: string[] = [];
+        for (let i = 1; i <= maxSessionHours; i++) {
+            arr.push(String(i));
+        }
+        return arr;
+    }, [maxSessionHours]);
 
-            if (days > MAX_DAYS) {
-                toast.error(`Maximum booking duration is ${MAX_DAYS} days`);
-                return;
-            }
+    /* ---------------- Date change ---------------- */
+
+    const handleDateChange = (range: DateRange | undefined) => {
+        if (!range?.from) {
+            setDateRange(range);
+            return;
+        }
+
+        if (isSessionBased) {
+            setDateRange({ from: range.from, to: range.from });
+            return;
         }
 
         setDateRange(range);
-
-        if (range?.from && range?.to && !isSameDay(range.from, range.to)) {
-            setStartTime(undefined);
-            setEndTime(undefined);
-        }
     };
 
     /* ---------------- Submit ---------------- */
+
     const handleSubmit = () => {
         if (!dateRange?.from) {
             toast.error("Please select date");
             return;
         }
 
-        if (!isMultiDay && (!startTime || !endTime)) {
-            toast.error("Please select start and end time");
-            return;
+        if (isSessionBased) {
+            if (!startTime || !sessionHours) {
+                toast.error("Select start time and session duration");
+                return;
+            }
         }
 
         createBooking.mutate(
@@ -189,8 +202,8 @@ export const VendorBookingForm = ({
                 vendorProductId,
                 startDate: format(dateRange.from, "yyyy-MM-dd"),
                 endDate: format(dateRange.to ?? dateRange.from, "yyyy-MM-dd"),
-                startTime: isMultiDay ? undefined : startTime,
-                endTime: isMultiDay ? undefined : endTime,
+                startTime: isSessionBased ? startTime : undefined,
+                sessionHours: isSessionBased ? Number(sessionHours) : undefined,
                 couponCode: couponPreview?.code,
                 notes: notes || undefined,
             },
@@ -198,23 +211,40 @@ export const VendorBookingForm = ({
                 onSuccess: (data) => {
                     toast.success("Booking request sent");
                     router.push(
-                        `/vendor/bookings/requested/${data.booking.uuid}`
+                        `/vendor/bookings/requested/${data.booking.uuid}`,
                     );
                 },
-                onError: (e) => toast.error(e.message),
-            }
+                onError: (e: any) =>
+                    toast.error(e?.message ?? "Something went wrong"),
+            },
         );
     };
 
+    if (isSelfBooking) {
+        return (
+            <Card className="rounded-2xl border-destructive/30 bg-destructive/5">
+                <CardContent className="p-6 text-center">
+                    <p className="text-destructive font-semibold">
+                        You cannot book your own service.
+                    </p>
+                </CardContent>
+            </Card>
+        );
+    }
+
     /* ---------------- Render ---------------- */
+
     return (
         <Card className="rounded-2xl">
             <CardContent className="p-6 space-y-6">
                 <h3 className="text-xl font-semibold">Request Booking</h3>
 
-                {/* Date picker */}
+                {/* Date Picker */}
                 <div>
-                    <Label className="mb-2 block">Select Date(s)</Label>
+                    <Label className="mb-2 block">
+                        {isSessionBased ? "Select Date" : "Select Date(s)"}
+                    </Label>
+
                     <DateRangePicker
                         value={dateRange}
                         onChange={handleDateChange}
@@ -222,17 +252,23 @@ export const VendorBookingForm = ({
                     />
                 </div>
 
-                {/* Time slots */}
-                {!isMultiDay && dateRange?.from && (
+                {/* Session Based Time Selection */}
+                {isSessionBased && dateRange?.from && (
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <Label className="mb-2 flex items-center gap-2">
-                                <Clock className="h-4 w-4" /> Start Time
+                                <Clock className="h-4 w-4" />
+                                Start Time
                             </Label>
-                            <Select value={startTime} onValueChange={setStartTime}>
-                                <SelectTrigger>
+
+                            <Select
+                                value={startTime}
+                                onValueChange={setStartTime}
+                            >
+                                <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Start" />
                                 </SelectTrigger>
+
                                 <SelectContent>
                                     {timeSlots.map((t) => (
                                         <SelectItem key={t} value={t}>
@@ -244,25 +280,60 @@ export const VendorBookingForm = ({
                         </div>
 
                         <div>
-                            <Label className="mb-2">End Time</Label>
-                            <Select value={endTime} onValueChange={setEndTime}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="End" />
+                            <Label className="mb-2">Duration (Hours)</Label>
+
+                            <Select
+                                value={sessionHours}
+                                onValueChange={setSessionHours}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Hours" />
                                 </SelectTrigger>
+
                                 <SelectContent>
-                                    {timeSlots.map((t) => (
-                                        <SelectItem
-                                            key={t}
-                                            value={t}
-                                            disabled={startTime ? t <= startTime : false}
-                                        >
-                                            {t}
+                                    {hourOptions.map((h) => (
+                                        <SelectItem key={h} value={h}>
+                                            {h} Hour
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </div>
                     </div>
+                )}
+
+                {/* Price Summary */}
+                {dateRange?.from && (
+                    <Card className="bg-muted/40 rounded-xl">
+                        <CardContent className="p-4 text-sm space-y-2">
+                            <div className="flex justify-between">
+                                <span>Base Price</span>
+                                <span>₹{baseAmount.toLocaleString()}</span>
+                            </div>
+
+                            {discountAmount > 0 && (
+                                <div className="flex justify-between text-green-600">
+                                    <span>Discount</span>
+                                    <span>
+                                        -₹
+                                        {discountAmount.toLocaleString()}
+                                    </span>
+                                </div>
+                            )}
+
+                            <div className="flex justify-between font-semibold border-t pt-2">
+                                <span>Advance Payable</span>
+                                <span className="text-primary">
+                                    ₹{advanceAmount.toLocaleString()}
+                                </span>
+                            </div>
+
+                            <div className="flex justify-between text-muted-foreground">
+                                <span>Remaining</span>
+                                <span>₹{remainingAmount.toLocaleString()}</span>
+                            </div>
+                        </CardContent>
+                    </Card>
                 )}
 
                 {/* Coupon */}
@@ -274,27 +345,41 @@ export const VendorBookingForm = ({
                     <div className="flex gap-2">
                         <Input
                             value={couponInput}
-                            onChange={(e) =>
-                                setCouponInput(e.target.value.toUpperCase())
-                            }
+                            onChange={(
+                                e: React.ChangeEvent<HTMLInputElement>,
+                            ) => setCouponInput(e.target.value.toUpperCase())}
                             disabled={!!couponPreview}
+                            placeholder="Enter coupon code"
                         />
 
                         {!couponPreview ? (
                             <Button
+                                type="button"
                                 variant="outline"
-                                disabled={!couponInput || validateCoupon.isPending}
+                                disabled={
+                                    !couponInput || validateCoupon.isPending
+                                }
                                 onClick={() =>
                                     validateCoupon.mutate(
-                                        { code: couponInput, amount: baseAmount },
+                                        {
+                                            code: couponInput,
+                                            amount: baseAmount,
+                                        },
                                         {
                                             onSuccess: (data) => {
                                                 setCouponPreview(data);
                                                 toast.success("Coupon applied");
                                             },
-                                            onError: (e) =>
-                                                toast.error(e.message),
-                                        }
+                                            onError: (error: unknown) => {
+                                                if (error instanceof Error) {
+                                                    toast.error(error.message);
+                                                } else {
+                                                    toast.error(
+                                                        "Invalid coupon",
+                                                    );
+                                                }
+                                            },
+                                        },
                                     )
                                 }
                             >
@@ -302,6 +387,7 @@ export const VendorBookingForm = ({
                             </Button>
                         ) : (
                             <Button
+                                type="button"
                                 variant="outline"
                                 onClick={() => {
                                     setCouponPreview(null);
@@ -317,55 +403,21 @@ export const VendorBookingForm = ({
                 {/* Notes */}
                 <div className="space-y-2">
                     <Label>Notes (optional)</Label>
-                    <Input
+
+                    <Textarea
                         placeholder="Any special instructions (max 50 words)"
                         value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                            setNotes(e.target.value)
+                        }
+                        maxLength={250}
+                        rows={3}
                     />
+
+                    <p className="text-xs text-muted-foreground">
+                        {notes.length}/250 characters
+                    </p>
                 </div>
-
-                {/* Price Summary */}
-                {dateRange?.from && (
-                    <Card className="bg-muted/40 rounded-xl">
-                        <CardContent className="p-4 text-sm space-y-2">
-                            <div className="flex justify-between">
-                                <span>Base Price</span>
-                                <span>₹{baseAmount.toLocaleString()}</span>
-                            </div>
-
-                            {discountAmount > 0 && (
-                                <div className="flex justify-between text-green-600">
-                                    <span>Discount</span>
-                                    <span>-₹{discountAmount.toLocaleString()}</span>
-                                </div>
-                            )}
-
-                            <div className="flex justify-between font-semibold border-t pt-2">
-                                <span>Advance Payable (now)</span>
-                                <span className="text-primary">
-                                    ₹{advanceAmount.toLocaleString()}
-                                </span>
-                            </div>
-
-                            <div className="flex justify-between text-muted-foreground">
-                                <span>Remaining (after event)</span>
-                                <span>₹{remainingAmount.toLocaleString()}</span>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {isSelfBooking && (
-                    <p className="text-sm text-destructive">
-                        You cannot book your own service.
-                    </p>
-                )}
-
-                {isAlreadyBookedByMe && (
-                    <p className="text-sm text-destructive">
-                        You already have an active booking.
-                    </p>
-                )}
 
                 <Button
                     onClick={handleSubmit}

@@ -20,10 +20,9 @@ interface VendorProductCardProps {
     rating: number;
     ratingCount: number;
 
-    businessName: string;
     occupation: string;
 
-    businessPhoto: string;
+    featuredImage: string;
 }
 
 export function VendorProductCard({
@@ -35,9 +34,8 @@ export function VendorProductCard({
     advanceValue,
     rating,
     ratingCount,
-    businessName,
     occupation,
-    businessPhoto,
+    featuredImage,
 }: VendorProductCardProps) {
     const router = useRouter();
 
@@ -53,8 +51,8 @@ export function VendorProductCard({
             {/* IMAGE */}
             <div className="relative aspect-[4/3] overflow-hidden rounded-t-2xl">
                 <img
-                    src={businessPhoto ?? "/placeholder.jpg"}
-                    alt={businessName}
+                    src={featuredImage ?? "/placeholder.jpg"}
+                    alt={title}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
 
@@ -66,7 +64,6 @@ export function VendorProductCard({
             {/* CONTENT */}
             <CardContent className="p-5 space-y-3">
                 <h3 className="text-lg font-semibold line-clamp-2">{title}</h3>
-                <p className="text-sm text-muted-foreground">{businessName}</p>
 
                 {/* RATING */}
                 <div className="flex items-center gap-2">

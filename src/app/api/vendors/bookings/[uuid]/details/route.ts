@@ -45,9 +45,7 @@ export async function GET(
                 db
                     .select({
                         businessName: vendorsTable.businessName,
-                        email: vendorsTable.email,
-                        phone: vendorsTable.phone,
-                        address: vendorsTable.address,
+                        
                     })
                     .from(vendorsTable)
                     .where(eq(vendorsTable.id, booking.bookedByVendorId)),
@@ -55,9 +53,7 @@ export async function GET(
                 db
                     .select({
                         businessName: vendorsTable.businessName,
-                        email: vendorsTable.email,
-                        phone: vendorsTable.phone,
-                        address: vendorsTable.address,
+                        
                     })
                     .from(vendorsTable)
                     .where(eq(vendorsTable.id, booking.vendorId)),

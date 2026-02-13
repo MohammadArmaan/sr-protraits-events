@@ -1,13 +1,22 @@
 // src/app/api/vendors/bookings/[uuid]/notes/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/config/db";
 import { vendorBookingsTable } from "@/config/vendorBookingsSchema";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import { getVendorFromRequest } from "@/lib/vendor/getVendorFromRequest";
+
+/* ---------------------------------- */
+/* Helpers */
+/* ---------------------------------- */
 
 function countWords(text: string) {
     return text.trim().split(/\s+/).filter(Boolean).length;
 }
+
+/* ---------------------------------- */
+/* POST: Update Booking Notes */
+/* ---------------------------------- */
 
 export async function POST(
     req: NextRequest,
@@ -15,6 +24,8 @@ export async function POST(
 ) {
     try {
         const { uuid } = await context.params;
+
+        /* ---------------- AUTH ---------------- */
         const vendor = await getVendorFromRequest(req);
 
         if (!vendor) {
@@ -24,10 +35,23 @@ export async function POST(
             );
         }
 
-        const { notes } = await req.json();
+        /* ---------------- BODY ---------------- */
+        const body: unknown = await req.json();
 
-        // notes can be empty string, but must exist
-        if (notes === undefined || typeof notes !== "string") {
+        if (
+            typeof body !== "object" ||
+            body === null ||
+            !("notes" in body)
+        ) {
+            return NextResponse.json(
+                { error: "Invalid request body" },
+                { status: 400 }
+            );
+        }
+
+        const notes = (body as { notes: unknown }).notes;
+
+        if (typeof notes !== "string") {
             return NextResponse.json(
                 { error: "Notes must be a string" },
                 { status: 400 }
@@ -41,39 +65,60 @@ export async function POST(
             );
         }
 
-        const booking = await db
-            .select({ id: vendorBookingsTable.id })
+        /* ---------------- FIND BOOKING ---------------- */
+
+        const [booking] = await db
+            .select({
+                id: vendorBookingsTable.id,
+                vendorId: vendorBookingsTable.vendorId,
+                bookedByVendorId: vendorBookingsTable.bookedByVendorId,
+                status: vendorBookingsTable.status,
+            })
             .from(vendorBookingsTable)
             .where(
                 and(
                     eq(vendorBookingsTable.uuid, uuid),
-                    eq(vendorBookingsTable.vendorId, vendor.id),
+
+                    // Allow BOTH provider and requester to edit
+                    or(
+                        eq(vendorBookingsTable.vendorId, vendor.id),
+                        eq(
+                            vendorBookingsTable.bookedByVendorId,
+                            vendor.id
+                        )
+                    ),
+
+                    // Only editable in these states
                     inArray(vendorBookingsTable.status, [
                         "CONFIRMED",
                         "COMPLETED",
+                        "SETTLED",
                     ])
                 )
             )
             .limit(1);
 
-        if (!booking.length) {
+        if (!booking) {
             return NextResponse.json(
                 { error: "Booking not found or not editable" },
                 { status: 404 }
             );
         }
 
+        /* ---------------- UPDATE ---------------- */
+
         await db
             .update(vendorBookingsTable)
             .set({
-                notes: notes.trim(), // "" allowed
+                notes: notes.trim() || null, // store null if empty
                 updatedAt: new Date(),
             })
-            .where(eq(vendorBookingsTable.id, booking[0].id));
+            .where(eq(vendorBookingsTable.id, booking.id));
 
         return NextResponse.json({ success: true });
-    } catch (err) {
-        console.error("Save booking notes error:", err);
+    } catch (error) {
+        console.error("Save booking notes error:", error);
+
         return NextResponse.json(
             { error: "Internal server error" },
             { status: 500 }

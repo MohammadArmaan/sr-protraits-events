@@ -1,6 +1,6 @@
 export function bookingConfirmedRequesterTemplate(
-  requesterName: string,
-  providerName: string,
+  requesterName?: string | null,
+  providerName?: string | null,
   bookingUuid: string
 ) {
   const gradientPrimary =

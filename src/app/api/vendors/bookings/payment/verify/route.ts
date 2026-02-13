@@ -117,15 +117,9 @@ export async function POST(req: NextRequest) {
                 advanceAmount,
                 remainingAmount,
 
-                provider: {
-                    name: provider.businessName,
-                    email: provider.email,
-                    phone: provider.phone,
-                    address: provider.address,
-                },
 
                 requester: {
-                    name: requester.businessName,
+                    name: requester.fullName,
                     email: requester.email,
                     phone: requester.phone,
                     address: requester.address,
@@ -139,8 +133,8 @@ export async function POST(req: NextRequest) {
                 to: requester.email,
                 subject: "Invoice & Booking Confirmed 🧾",
                 html: bookingConfirmedRequesterTemplate(
-                    requester.businessName,
-                    provider.businessName,
+                    requester.fullName,
+                    provider.fullName,
                     booking.uuid
                 ),
                 attachments: [
@@ -157,16 +151,9 @@ export async function POST(req: NextRequest) {
                 to: provider.email,
                 subject: "New Booking Confirmed 📅",
                 html: bookingConfirmedProviderTemplate(
-                    provider.businessName,
-                    requester.businessName
+                    provider.fullName,
+                    requester.fullName
                 ),
-                attachments: [
-                    {
-                        filename: `Invoice-${booking.uuid}.pdf`,
-                        content: invoicePdf,
-                        contentType: "application/pdf",
-                    },
-                ],
             });
         } catch (invoiceError) {
             console.error(

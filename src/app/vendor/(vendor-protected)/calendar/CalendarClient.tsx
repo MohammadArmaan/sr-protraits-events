@@ -46,6 +46,13 @@ import { VendorBooking, VendorCalendarBlock } from "@/types/vendor-calendar";
 import { useSaveBookingNotes } from "@/hooks/queries/useSaveBookingNotes";
 import { useBookingDetails } from "@/hooks/queries/useBookingDetails";
 import { useRouter } from "next/navigation";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 interface CalendarEvent {
     uuid: string;
@@ -70,12 +77,12 @@ export default function CalendarClient() {
     const saveBookingNotes = useSaveBookingNotes();
 
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-        new Date()
+        new Date(),
     );
 
     const [noteDialogOpen, setNoteDialogOpen] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
-        null
+        null,
     );
     const [noteText, setNoteText] = useState("");
     const { data: bookingDetails } = useBookingDetails(selectedEvent?.uuid);
@@ -92,78 +99,83 @@ export default function CalendarClient() {
     const [selectedBlockToDelete, setSelectedBlockToDelete] =
         useState<VendorCalendarBlock | null>(null);
 
+    const [reportDialogOpen, setReportDialogOpen] = useState(false);
+    const [reportRangeType, setReportRangeType] = useState<
+        "1m" | "3m" | "6m" | "1y" | "custom"
+    >("1m");
 
-const events: CalendarEvent[] = useMemo(() => {
-    if (!data) return [];
+    const [customFrom, setCustomFrom] = useState<string>("");
+    const [customTo, setCustomTo] = useState<string>("");
 
-    const bookedForMe = data.bookedForMe ?? [];
-    const bookedByMe = data.bookedByMe ?? [];
+    const [reportType, setReportType] = useState<"pdf" | "csv">("pdf");
+    const [isDownloading, setIsDownloading] = useState(false);
 
-    const expandBooking = (
-        booking: VendorBooking,
-        type: "booked_by_me" | "booked_for_me"
-    ): CalendarEvent[] => {
-        const start = new Date(booking.startDate);
-        const end = new Date(booking.endDate);
+    const events: CalendarEvent[] = useMemo(() => {
+        if (!data) return [];
 
-        const days = differenceInCalendarDays(end, start) + 1;
+        const bookedForMe = data.bookedForMe ?? [];
+        const bookedByMe = data.bookedByMe ?? [];
 
-        return Array.from({ length: days }).map((_, i) => {
-            const date = addDays(start, i);
+        const expandBooking = (
+            booking: VendorBooking,
+            type: "booked_by_me" | "booked_for_me",
+        ): CalendarEvent[] => {
+            const start = new Date(booking.startDate);
+            const end = new Date(booking.endDate);
 
-            return {
-                uuid: booking.uuid,
-                title: "Booking",
-                date: format(date, "yyyy-MM-dd"),
-                time:
-                    booking.startTime && booking.endTime
-                        ? `${booking.startTime} - ${booking.endTime}`
-                        : "Full day",
-                location: "—",
-                type,
-                status:
-                    booking.status === "COMPLETED"
-                        ? "completed"
-                        : "upcoming",
-                notes: booking.notes,
-            };
-        });
-    };
+            const days = differenceInCalendarDays(end, start) + 1;
 
-    return [
-        ...bookedForMe.flatMap((b) =>
-            expandBooking(b, "booked_for_me")
-        ),
-        ...bookedByMe.flatMap((b) =>
-            expandBooking(b, "booked_by_me")
-        ),
-    ];
-}, [data]);
+            return Array.from({ length: days }).map((_, i) => {
+                const date = addDays(start, i);
 
+                return {
+                    uuid: booking.uuid,
+                    title: "Booking",
+                    date: format(date, "yyyy-MM-dd"),
+                    time:
+                        booking.startTime && booking.endTime
+                            ? `${booking.startTime} - ${booking.endTime}`
+                            : "Full day",
+                    location: "—",
+                    type,
+                    status:
+                        booking.status === "COMPLETED"
+                            ? "completed"
+                            : "upcoming",
+                    notes: booking.notes,
+                };
+            });
+        };
+
+        return [
+            ...bookedForMe.flatMap((b) => expandBooking(b, "booked_for_me")),
+            ...bookedByMe.flatMap((b) => expandBooking(b, "booked_by_me")),
+        ];
+    }, [data]);
 
     const blockedRanges: VendorCalendarBlock[] = data?.blockedDates ?? [];
 
-const isBlockedDate = (date: Date) => {
-    const current = startOfDay(date);
+    const isBlockedDate = (date: Date) => {
+        const current = startOfDay(date);
 
-    return blockedRanges.some((block) => {
-        const start = startOfDay(new Date(block.startDate));
-        const end = startOfDay(new Date(block.endDate));
-        return current >= start && current <= end;
-    });
-};
-
-const getBlockForDate = (date: Date): VendorCalendarBlock | null => {
-    const current = startOfDay(date);
-
-    return (
-        blockedRanges.find((block) => {
+        return blockedRanges.some((block) => {
             const start = startOfDay(new Date(block.startDate));
             const end = startOfDay(new Date(block.endDate));
             return current >= start && current <= end;
-        }) ?? null
-    );
-};
+        });
+    };
+
+    const getBlockForDate = (date: Date): VendorCalendarBlock | null => {
+        const current = startOfDay(date);
+
+        return (
+            blockedRanges.find((block) => {
+                const start = startOfDay(new Date(block.startDate));
+                const end = startOfDay(new Date(block.endDate));
+                return current >= start && current <= end;
+            }) ?? null
+        );
+    };
 
     const hasEventOnDate = (date: Date) => {
         return events.some((event) => isSameDay(new Date(event.date), date));
@@ -180,6 +192,99 @@ const getBlockForDate = (date: Date): VendorCalendarBlock | null => {
         }
 
         return dates;
+    };
+
+    const handleDownloadReport = async () => {
+        try {
+            setIsDownloading(true);
+
+            let fromDate: Date;
+            let toDate: Date = new Date();
+
+            const now = new Date();
+
+            switch (reportRangeType) {
+                case "1m":
+                    fromDate = new Date(now);
+                    fromDate.setMonth(now.getMonth() - 1);
+                    break;
+
+                case "3m":
+                    fromDate = new Date(now);
+                    fromDate.setMonth(now.getMonth() - 3);
+                    break;
+
+                case "6m":
+                    fromDate = new Date(now);
+                    fromDate.setMonth(now.getMonth() - 6);
+                    break;
+
+                case "1y":
+                    fromDate = new Date(now);
+                    fromDate.setFullYear(now.getFullYear() - 1);
+                    break;
+
+                case "custom":
+                    if (!customFrom || !customTo) {
+                        toast.error("Please select both start and end dates");
+                        setIsDownloading(false);
+                        return;
+                    }
+
+                    fromDate = new Date(customFrom);
+                    toDate = new Date(customTo);
+
+                    if (fromDate > toDate) {
+                        toast.error("Start date cannot be after end date");
+                        setIsDownloading(false);
+                        return;
+                    }
+
+                    break;
+
+                default:
+                    toast.error("Invalid date range");
+                    setIsDownloading(false);
+                    return;
+            }
+
+            const query = new URLSearchParams({
+                from: format(fromDate, "yyyy-MM-dd"),
+                to: format(toDate, "yyyy-MM-dd"),
+                type: reportType,
+            }).toString();
+
+            const res = await fetch(`/api/vendors/calendar/report?${query}`, {
+                method: "GET",
+                credentials: "include",
+            });
+
+            if (!res.ok) {
+                toast.error("Failed to generate report");
+                setIsDownloading(false);
+                return;
+            }
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `vendor-report-${Date.now()}.${reportType}`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+
+            window.URL.revokeObjectURL(url);
+
+            toast.success("Report downloaded successfully");
+            setReportDialogOpen(false);
+        } catch (error) {
+            console.error(error);
+            toast.error("Something went wrong");
+        } finally {
+            setIsDownloading(false);
+        }
     };
 
     const handleDateClick = (date: Date) => {
@@ -226,7 +331,7 @@ const getBlockForDate = (date: Date): VendorCalendarBlock | null => {
             // Check if any date in range has events
             const datesInRange = getDatesInRange(start, end);
             const hasEventsInRange = datesInRange.some((d) =>
-                hasEventOnDate(d)
+                hasEventOnDate(d),
             );
 
             if (hasEventsInRange) {
@@ -278,7 +383,7 @@ const getBlockForDate = (date: Date): VendorCalendarBlock | null => {
                 onError: (err) => {
                     toast.error(err.error || "Failed to block dates");
                 },
-            }
+            },
         );
     };
 
@@ -313,15 +418,13 @@ const getBlockForDate = (date: Date): VendorCalendarBlock | null => {
 
     const customDayContent = (day: Date) => {
         const dayEvents = events.filter((event) =>
-            isSameDay(new Date(event.date), day)
+            isSameDay(new Date(event.date), day),
         );
 
         const isToday = isSameDay(day, new Date());
         const isSelected = selectedDate && isSameDay(day, selectedDate);
         const isBlocked = isBlockedDate(day);
         const isInRange = isInBlockingRange(day);
-
-
 
         return (
             <div
@@ -384,13 +487,13 @@ const getBlockForDate = (date: Date): VendorCalendarBlock | null => {
         );
     };
 
-            useEffect(() => {
-    if (eventsForSelectedDate.length > 0) {
-        setSelectedEvent(eventsForSelectedDate[0]);
-    } else {
-        setSelectedEvent(null);
-    }
-}, [selectedDate, eventsForSelectedDate]);
+    useEffect(() => {
+        if (eventsForSelectedDate.length > 0) {
+            setSelectedEvent(eventsForSelectedDate[0]);
+        } else {
+            setSelectedEvent(null);
+        }
+    }, [selectedDate, eventsForSelectedDate]);
 
     if (isLoading) return <CalendarSkeleton />;
 
@@ -398,10 +501,22 @@ const getBlockForDate = (date: Date): VendorCalendarBlock | null => {
         <>
             <main className="pt-8 px-4 md:px-8 pb-16">
                 <div className="max-w-7xl mx-auto">
-                    <h1 className="text-4xl font-bold mb-2">Event Calendar</h1>
-                    <p className="text-muted-foreground mb-4">
-                        Track your bookings and availability
-                    </p>
+                    <div className="flex flex-col md:flex-row justify-between gap-3 mb-5">
+                        <div>
+                            <h1 className="text-4xl font-bold mb-2">
+                                Event Calendar
+                            </h1>
+                            <p className="text-muted-foreground mb-4">
+                                Track your bookings and availability
+                            </p>
+                        </div>
+                        <Button
+                            onClick={() => setReportDialogOpen(true)}
+                            className="bg-gradient-primary"
+                        >
+                            Download Report
+                        </Button>
+                    </div>
 
                     {/* Color Legend */}
                     <div className="flex flex-wrap gap-4 mb-6 text-sm">
@@ -486,7 +601,7 @@ const getBlockForDate = (date: Date): VendorCalendarBlock | null => {
                                                         className="h-full w-full cursor-pointer border border-border hover:bg-accent/50 transition-colors"
                                                         onClick={() =>
                                                             handleDateClick(
-                                                                date
+                                                                date,
                                                             )
                                                         }
                                                     >
@@ -508,183 +623,217 @@ const getBlockForDate = (date: Date): VendorCalendarBlock | null => {
                                     : "Select a date"}
                             </h2>
 
-{eventsForSelectedDate.map((event) => {
-    const details = bookingDetails;
+                            {eventsForSelectedDate.map((event) => {
+                                const details = bookingDetails;
 
-    const remainingAmount = Number(details?.payment.remainingAmount ?? 0);
+                                const remainingAmount = Number(
+                                    details?.payment.remainingAmount ?? 0,
+                                );
 
-    const isBooked = 
-        !!details &&
-        event.type === "booked_by_me" &&
-        remainingAmount !== 0 &&
-        isEventOver(details.booking.endDate) &&
-        details.booking.status === "CONFIRMED";
+                                const isBooked =
+                                    !!details &&
+                                    event.type === "booked_by_me" &&
+                                    remainingAmount !== 0 &&
+                                    isEventOver(details.booking.endDate) &&
+                                    details.booking.status === "CONFIRMED";
 
-    const canSettle =
-        !!details &&
-        event.type === "booked_by_me" &&
-        remainingAmount > 0 &&
-        isEventOver(details.booking.endDate) &&
-        details.booking.status !== "COMPLETED";
+                                const canSettle =
+                                    !!details &&
+                                    event.type === "booked_by_me" &&
+                                    remainingAmount > 0 &&
+                                    isEventOver(details.booking.endDate) &&
+                                    details.booking.status !== "COMPLETED";
 
-    const isSettled =
-        !!details &&
-        event.type === "booked_by_me" &&
-        remainingAmount === 0 &&
-        isEventOver(details.booking.endDate) &&
-        details.booking.status === "COMPLETED";
+                                const isSettled =
+                                    !!details &&
+                                    event.type === "booked_by_me" &&
+                                    remainingAmount === 0 &&
+                                    isEventOver(details.booking.endDate) &&
+                                    details.booking.status === "COMPLETED";
 
-    return (
-        <Card
-            key={event.uuid}
-            onClick={() => setSelectedEvent(event)}
-            className={`border-l-4 ${
-                event.type === "booked_by_me"
-                    ? "border-blue-600"
-                    : "border-green-600"
-            }`}
-        >
-            <CardContent className="p-4 space-y-3">
-                {/* Title + Status */}
-                <div className="flex justify-between items-start">
-                    <h3 className="font-semibold">
-                        {details?.product.title ?? "Booking"}
-                    </h3>
-                    <Badge variant="secondary" className="capitalize">
-                        {event.status}
-                    </Badge>
-                </div>
+                                return (
+                                    <Card
+                                        key={event.uuid}
+                                        onClick={() => setSelectedEvent(event)}
+                                        className={`border-l-4 ${
+                                            event.type === "booked_by_me"
+                                                ? "border-blue-600"
+                                                : "border-green-600"
+                                        }`}
+                                    >
+                                        <CardContent className="p-4 space-y-3">
+                                            {/* Title + Status */}
+                                            <div className="flex justify-between items-start">
+                                                <h3 className="font-semibold">
+                                                    {details?.product.title ??
+                                                        "Booking"}
+                                                </h3>
+                                                <Badge
+                                                    variant="secondary"
+                                                    className="capitalize"
+                                                >
+                                                    {event.status}
+                                                </Badge>
+                                            </div>
 
-                {/* Time */}
-                <div className="text-sm text-muted-foreground flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    {event.time}
-                </div>
+                                            {/* Time */}
+                                            <div className="text-sm text-muted-foreground flex items-center gap-2">
+                                                <Clock className="h-4 w-4" />
+                                                {event.time}
+                                            </div>
 
-                {/* Party Info */}
-                {details && (
-                    <div className="text-sm space-y-1">
-                        {event.type === "booked_for_me" ? (
-                            <>
-                                <p>
-                                    <strong>Booked by:</strong>{" "}
-                                    {details.requester.businessName}
-                                </p>
-                                <p>{details.requester.phone}</p>
-                                <p>{details.requester.email}</p>
-                            </>
-                        ) : (
-                            <>
-                                <p>
-                                    <strong>Service Provider:</strong>{" "}
-                                    {details.provider.businessName}
-                                </p>
-                                <p>{details.provider.phone}</p>
-                                <p>{details.provider.email}</p>
-                            </>
-                        )}
-                    </div>
-                )}
+                                            {/* Party Info */}
+                                            {details && (
+                                                <div className="text-sm space-y-1">
+                                                    {event.type ===
+                                                    "booked_for_me" ? (
+                                                        <>
+                                                            <p>
+                                                                <strong>
+                                                                    Booked by:
+                                                                </strong>{" "}
+                                                                {
+                                                                    details
+                                                                        .requester
+                                                                        .businessName
+                                                                }
+                                                            </p>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <p>
+                                                                <strong>
+                                                                    Service
+                                                                    Provider:
+                                                                </strong>{" "}
+                                                                {
+                                                                    details
+                                                                        .provider
+                                                                        .businessName
+                                                                }
+                                                            </p>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
 
-                {/* Payment Info */}
-                {details && (
-                    <div className="text-sm bg-muted/40 rounded-lg p-2 space-y-1">
-                        <div className="flex justify-between">
-                            <span>Total</span>
-                            <span>₹{details.payment.totalAmount}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span>Advance Paid</span>
-                            <span className="text-green-600">
-                                ₹{details.payment.advanceAmount}
-                            </span>
-                        </div>
+                                            {/* Payment Info */}
+                                            {details && (
+                                                <div className="text-sm bg-muted/40 rounded-lg p-2 space-y-1">
+                                                    <div className="flex justify-between">
+                                                        <span>Total</span>
+                                                        <span>
+                                                            ₹
+                                                            {
+                                                                details.payment
+                                                                    .totalAmount
+                                                            }
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span>
+                                                            Advance Paid
+                                                        </span>
+                                                        <span className="text-green-600">
+                                                            ₹
+                                                            {
+                                                                details.payment
+                                                                    .advanceAmount
+                                                            }
+                                                        </span>
+                                                    </div>
 
-                        <div className="flex justify-between font-semibold">
-                            <span>Remaining</span>
-                            {remainingAmount > 0 ? (
-                                <span className="text-destructive">
-                                    ₹{remainingAmount}
-                                </span>
-                            ) : (
-                                <span className="text-green-600">
-                                    No Remaining Due
-                                </span>
-                            )}
-                        </div>
+                                                    <div className="flex justify-between font-semibold">
+                                                        <span>Remaining</span>
+                                                        {remainingAmount > 0 ? (
+                                                            <span className="text-destructive">
+                                                                ₹
+                                                                {
+                                                                    remainingAmount
+                                                                }
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-green-600">
+                                                                No Remaining Due
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
 
-                    </div>
-                )}
+                                            {/* Notes */}
+                                            {event.notes && (
+                                                <p className="text-sm bg-muted p-2 rounded">
+                                                    {event.notes}
+                                                </p>
+                                            )}
 
-                {/* Notes */}
-                {event.notes && (
-                    <p className="text-sm bg-muted p-2 rounded">
-                        {event.notes}
-                    </p>
-                )}
+                                            {/* Notes CTA */}
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="w-full"
+                                                onClick={() => {
+                                                    setSelectedEvent(event);
+                                                    setNoteText(
+                                                        event.notes ?? "",
+                                                    );
+                                                    setNoteDialogOpen(true);
+                                                }}
+                                            >
+                                                <Plus className="h-4 w-4 mr-1" />
+                                                Add Note
+                                            </Button>
 
-                {/* Notes CTA */}
-                <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => {
-                        setSelectedEvent(event);
-                        setNoteText(event.notes ?? "");
-                        setNoteDialogOpen(true);
-                    }}
-                >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Note
-                </Button>
+                                            {/* ✅ SETTLEMENT CTA */}
+                                            {isBooked && (
+                                                <Button
+                                                    className="w-full bg-gradient-primary"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation(); // prevent card click
+                                                        router.push(
+                                                            `/vendor/bookings/confirmed/${event.uuid}`,
+                                                        );
+                                                    }}
+                                                >
+                                                    View Booking Summary
+                                                </Button>
+                                            )}
+                                            {canSettle && (
+                                                <Button
+                                                    className="w-full bg-gradient-primary"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation(); // prevent card click
+                                                        router.push(
+                                                            `/vendor/bookings/settle/${event.uuid}`,
+                                                        );
+                                                    }}
+                                                >
+                                                    Pay Remaining ₹
+                                                    {
+                                                        details.payment
+                                                            .remainingAmount
+                                                    }
+                                                </Button>
+                                            )}
 
-                {/* ✅ SETTLEMENT CTA */}
-                {isBooked && (
-     <Button
-        className="w-full bg-gradient-primary"
-        onClick={(e) => {
-            e.stopPropagation(); // prevent card click
-            router.push(
-                `/vendor/bookings/confirmed/${event.uuid}`
-            );
-        }}
-    >
-        View Booking Summary
-    </Button>
-)}
-                {canSettle && (
-    <Button
-        className="w-full bg-gradient-primary"
-        onClick={(e) => {
-            e.stopPropagation(); // prevent card click
-            router.push(
-                `/vendor/bookings/settle/${event.uuid}`
-            );
-        }}
-    >
-        Pay Remaining ₹{details.payment.remainingAmount}
-    </Button>
-)}
-
-                {isSettled && (
-    <Button
-        className="w-full bg-gradient-primary"
-        onClick={(e) => {
-            e.stopPropagation(); // prevent card click
-            router.push(
-                `/vendor/bookings/completed/${event.uuid}`
-            );
-        }}
-    >
-        View Booking Summary
-    </Button>
-)}
-
-            </CardContent>
-        </Card>
-    );
-})}
-
+                                            {isSettled && (
+                                                <Button
+                                                    className="w-full bg-gradient-primary"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation(); // prevent card click
+                                                        router.push(
+                                                            `/vendor/bookings/completed/${event.uuid}`,
+                                                        );
+                                                    }}
+                                                >
+                                                    View Booking Summary
+                                                </Button>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
@@ -705,13 +854,13 @@ const getBlockForDate = (date: Date): VendorCalendarBlock | null => {
                             {selectedBlockToDelete &&
                                 format(
                                     new Date(selectedBlockToDelete.startDate),
-                                    "MMM d, yyyy"
+                                    "MMM d, yyyy",
                                 )}{" "}
                             to{" "}
                             {selectedBlockToDelete &&
                                 format(
                                     new Date(selectedBlockToDelete.endDate),
-                                    "MMM d, yyyy"
+                                    "MMM d, yyyy",
                                 )}
                             ?
                             {selectedBlockToDelete?.reason && (
@@ -777,7 +926,10 @@ const getBlockForDate = (date: Date): VendorCalendarBlock | null => {
                             >
                                 Cancel
                             </Button>
-                            <Button onClick={handleBlockDatesSubmit} className="bg-gradient-primary">
+                            <Button
+                                onClick={handleBlockDatesSubmit}
+                                className="bg-gradient-primary"
+                            >
                                 Block Dates
                             </Button>
                         </div>
@@ -829,13 +981,129 @@ const getBlockForDate = (date: Date): VendorCalendarBlock | null => {
                                             },
                                             onError: (e) =>
                                                 toast.error(e.message),
-                                        }
+                                        },
                                     );
                                 }}
                             >
                                 Save
                             </Button>
                         </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Report Dialog */}
+            <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Download Report</DialogTitle>
+                        <DialogDescription>
+                            Select date range and file format
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-5">
+                        {/* Date Range */}
+                        <div className="space-y-2">
+                            <Label>Date Range</Label>
+
+                            <Select
+                                value={reportRangeType}
+                                onValueChange={(value) =>
+                                    setReportRangeType(
+                                        value as
+                                            | "1m"
+                                            | "3m"
+                                            | "6m"
+                                            | "1y"
+                                            | "custom",
+                                    )
+                                }
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select date range" />
+                                </SelectTrigger>
+
+                                <SelectContent>
+                                    <SelectItem value="1m">
+                                        Last 1 Month
+                                    </SelectItem>
+                                    <SelectItem value="3m">
+                                        Last 3 Months
+                                    </SelectItem>
+                                    <SelectItem value="6m">
+                                        Last 6 Months
+                                    </SelectItem>
+                                    <SelectItem value="1y">
+                                        Last 1 Year
+                                    </SelectItem>
+                                    <SelectItem value="custom">
+                                        Custom Range
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Custom Date Inputs */}
+                        {reportRangeType === "custom" && (
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <Label>From</Label>
+                                    <input
+                                        type="date"
+                                        value={customFrom}
+                                        onChange={(e) =>
+                                            setCustomFrom(e.target.value)
+                                        }
+                                        className="w-full border rounded p-2 mt-1"
+                                    />
+                                </div>
+
+                                <div>
+                                    <Label>To</Label>
+                                    <input
+                                        type="date"
+                                        value={customTo}
+                                        onChange={(e) =>
+                                            setCustomTo(e.target.value)
+                                        }
+                                        className="w-full border rounded p-2 mt-1"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* File Type */}
+                        <div className="space-y-2">
+                            <Label>File Type</Label>
+
+                            <Select
+                                value={reportType}
+                                onValueChange={(value) =>
+                                    setReportType(value as "pdf" | "csv")
+                                }
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select file type" />
+                                </SelectTrigger>
+
+                                <SelectContent>
+                                    <SelectItem value="pdf">PDF</SelectItem>
+                                    <SelectItem value="csv">CSV</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Download Button */}
+                        <Button
+                            disabled={isDownloading}
+                            className="w-full bg-gradient-primary"
+                            onClick={handleDownloadReport}
+                        >
+                            {isDownloading
+                                ? "Preparing Report..."
+                                : "Download Report"}
+                        </Button>
                     </div>
                 </DialogContent>
             </Dialog>

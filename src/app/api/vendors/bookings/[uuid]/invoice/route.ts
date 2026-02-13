@@ -100,15 +100,8 @@ export async function GET(
             advanceAmount,
             remainingAmount,
 
-            provider: {
-                name: provider.businessName,
-                email: provider.email,
-                phone: provider.phone,
-                address: provider.address,
-            },
-
             requester: {
-                name: requester.businessName,
+                name: requester.fullName,
                 email: requester.email,
                 phone: requester.phone,
                 address: requester.address,

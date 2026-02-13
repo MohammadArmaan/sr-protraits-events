@@ -23,6 +23,7 @@ export interface Vendor {
     phone: string;
     address: string;
     email: string;
+    points: number;
     passwordHash: string;
 
     yearsOfExperience: number;

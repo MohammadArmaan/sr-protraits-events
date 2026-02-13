@@ -48,10 +48,9 @@ export default function ShopClientFull() {
                             advanceValue={Number(product.advanceValue)}
                             rating={Number(product.rating)}
                             ratingCount={product.ratingCount}
-                            businessName={product.businessName}
                             occupation={product.occupation}
-                            businessPhoto={
-                                product.images[product.featuredImageIndex]
+                            featuredImage={
+                                product.featuredImageUrl
                             }
                         />
                     ))}

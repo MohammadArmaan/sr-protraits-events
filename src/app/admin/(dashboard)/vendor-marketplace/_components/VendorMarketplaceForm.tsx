@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Upload, X, ImagePlus, Star, ArrowLeft } from "lucide-react";
+import { Upload, X, Star, ArrowLeft, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -18,6 +18,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 
 import {
     AdminVendorProduct,
@@ -29,26 +30,51 @@ import Zoom from "react-medium-image-zoom";
 import { useVendorListByStatus } from "@/hooks/queries/admin/useVendorListByStatus";
 
 /* -------------------------------------------------------------------------- */
+/*                            CATALOG INTERFACE                               */
+/* -------------------------------------------------------------------------- */
+
+interface CatalogImage {
+    id: number;
+    catalogId: number;
+    imageUrl: string;
+    sortOrder: number;
+}
+
+interface VendorCatalog {
+    id: number;
+    vendorId: number;
+    title: string;
+    description: string | null;
+    categoryId: number;
+    subCategoryId: number | null;
+    images: CatalogImage[];
+    createdAt: Date;
+}
+
+/* -------------------------------------------------------------------------- */
 /*                                FORM STATE                                  */
 /* -------------------------------------------------------------------------- */
 
 interface VendorProductFormState {
     vendorId: number | null;
+    catalogIds: number[];
+    featuredImageByCatalog: Record<number, number>; // catalogId -> imageId
 
     title: string;
     description: string;
 
-    images: string[];
-    featuredImageIndex: number;
+    isSessionBased: boolean;
 
     basePriceSingleDay: number;
     basePriceMultiDay: number;
+
     pricingUnit: PricingUnit;
 
     advanceType: AdvanceType;
     advanceValue: number | null;
 
     isFeatured: boolean;
+    isPriority: boolean;
     isActive: boolean;
 }
 
@@ -74,7 +100,7 @@ export function VendorMarketplaceForm({ initialData, onSubmit }: Props) {
 
     /* ---------------- FORM MODE ---------------- */
     const isEditMode = Boolean(initialData);
-
+    const [isHydrated, setIsHydrated] = useState(false);
     const [useCustomContent, setUseCustomContent] = useState<boolean>(
         Boolean(initialData),
     );
@@ -82,49 +108,237 @@ export function VendorMarketplaceForm({ initialData, onSubmit }: Props) {
     /* ---------------- FORM STATE ---------------- */
     const [form, setForm] = useState<VendorProductFormState>({
         vendorId: initialData?.vendorId ?? null,
+        catalogIds: [],
+        featuredImageByCatalog: {},
 
         title: initialData?.title ?? "",
         description: initialData?.description ?? "",
 
-        images: initialData?.images ?? [],
-        featuredImageIndex: initialData?.featuredImageIndex ?? 0,
+        isSessionBased: initialData?.isSessionBased ?? false,
 
         basePriceSingleDay: initialData?.basePriceSingleDay ?? 0,
         basePriceMultiDay: initialData?.basePriceMultiDay ?? 0,
+
         pricingUnit: initialData?.pricingUnit ?? "PER_DAY",
 
         advanceType: initialData?.advanceType ?? "FIXED",
         advanceValue: initialData?.advanceValue ?? null,
 
         isFeatured: initialData?.isFeatured ?? false,
+        isPriority: initialData?.isPriority ?? false,
         isActive: initialData?.isActive ?? true,
     });
+
+    /* ---------------- VENDOR CATALOGS STATE ---------------- */
+    const [vendorCatalogs, setVendorCatalogs] = useState<VendorCatalog[]>([]);
+    const [loadingCatalogs, setLoadingCatalogs] = useState(false);
 
     /* ---------------- SELECTED VENDOR ---------------- */
     const selectedVendor = vendors.find((v) => v.vendorId === form.vendorId);
 
+    /* ---------------- SELECTED CATALOGS ---------------- */
+    const selectedCatalogs = vendorCatalogs.filter((c) =>
+        form.catalogIds.includes(c.id),
+    );
+
     /* ---------------------------------------------------------------------- */
-    /*                      AUTO-FILL FROM VENDOR PROFILE                     */
+    /*                      FETCH VENDOR CATALOGS                             */
     /* ---------------------------------------------------------------------- */
 
     useEffect(() => {
-        if (!selectedVendor) return;
+        if (!form.vendorId) {
+            setVendorCatalogs([]);
+            return;
+        }
+
+        const fetchCatalogs = async () => {
+            setLoadingCatalogs(true);
+            try {
+                const res = await fetch(
+                    `/api/admin/vendor-catalogs?vendorId=${form.vendorId}`,
+                );
+                if (res.ok) {
+                    const data = await res.json();
+                    setVendorCatalogs(data.catalogs || []);
+                }
+            } catch (error) {
+                console.error("Failed to fetch catalogs:", error);
+                toast.error("Failed to load vendor catalogs");
+            } finally {
+                setLoadingCatalogs(false);
+            }
+        };
+
+        fetchCatalogs();
+    }, [form.vendorId]);
+
+    /* ---------------------------------------------------------------------- */
+    /*                    HYDRATE EDIT MODE DATA                              */
+    /* ---------------------------------------------------------------------- */
+
+    useEffect(() => {
+        if (!isEditMode || !initialData?.id) return;
+        if (vendorCatalogs.length === 0) return; // Wait for catalogs to load first
+
+        const hydrateEditData = async () => {
+            try {
+                const res = await fetch(
+                    `/api/admin/vendor-products/${initialData.id}/details`,
+                );
+                const data = await res.json();
+
+                if (!data.success) return;
+
+                // Map featured image URLs to catalog image IDs
+                const featuredImageByCatalog: Record<number, number> = {};
+
+                Object.entries(data.imagesByCatalog).forEach(
+                    ([catalogId, group]: [string, any]) => {
+                        // Use featuredImageUrl instead of featuredImageId
+                        if (!group.featuredImageUrl) return;
+
+                        // Find the matching catalog from vendorCatalogs
+                        const catalog = vendorCatalogs.find(
+                            (c) => c.id === Number(catalogId),
+                        );
+
+                        if (!catalog) return;
+
+                        // Find the catalog image with matching URL
+                        const matchingCatalogImage = catalog.images.find(
+                            (img) => img.imageUrl === group.featuredImageUrl,
+                        );
+
+                        if (matchingCatalogImage) {
+                            featuredImageByCatalog[Number(catalogId)] =
+                                matchingCatalogImage.id;
+                        }
+                    },
+                );
+
+                setForm((prev) => ({
+                    ...prev,
+                    catalogIds: data.catalogIds,
+                    featuredImageByCatalog: featuredImageByCatalog,
+                }));
+                setIsHydrated(true);
+            } catch (err) {
+                console.error("Hydration error:", err);
+                toast.error("Failed to load product catalogs");
+            }
+        };
+
+        hydrateEditData();
+    }, [isEditMode, initialData?.id, vendorCatalogs.length]);
+
+    /* ---------------------------------------------------------------------- */
+    /*                      AUTO-FILL FROM CATALOGS                           */
+    /* ---------------------------------------------------------------------- */
+
+    useEffect(() => {
+        if (form.catalogIds.length === 0) return;
         if (useCustomContent) return;
         if (isEditMode) return;
+        if (vendorCatalogs.length === 0) return;
 
+        const selected = vendorCatalogs.filter((c) =>
+            form.catalogIds.includes(c.id),
+        );
+
+        if (selected.length === 0) return;
+
+        const firstCatalog = selected[0];
+        const newTitle =
+            firstCatalog.title || selectedVendor?.businessName || "";
+        const newDescription =
+            firstCatalog.description ||
+            selectedVendor?.businessDescription ||
+            "";
+
+        setForm((prev) => {
+            const titleChanged = prev.title !== newTitle;
+            const descriptionChanged = prev.description !== newDescription;
+
+            if (!titleChanged && !descriptionChanged) {
+                return prev;
+            }
+
+            return {
+                ...prev,
+                title: newTitle,
+                description: newDescription,
+            };
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [form.catalogIds.join(","), useCustomContent, isEditMode]);
+
+    /* ---------------------------------------------------------------------- */
+    /*                    SESSION-BASED PRICING LOGIC                         */
+    /* ---------------------------------------------------------------------- */
+
+    useEffect(() => {
+        if (form.isSessionBased) {
+            setForm((prev) => {
+                if (prev.pricingUnit === "PER_EVENT") return prev;
+                return {
+                    ...prev,
+                    pricingUnit: "PER_EVENT",
+                };
+            });
+        } else {
+            setForm((prev) => {
+                if (prev.pricingUnit === "PER_DAY") return prev;
+                return {
+                    ...prev,
+                    pricingUnit: "PER_DAY",
+                };
+            });
+        }
+    }, [form.isSessionBased]);
+
+    /* ---------------------------------------------------------------------- */
+    /*                         CATALOG SELECTION                              */
+    /* ---------------------------------------------------------------------- */
+
+    const toggleCatalog = (catalogId: number) => {
+        setForm((prev) => {
+            const isRemoving = prev.catalogIds.includes(catalogId);
+
+            if (isRemoving) {
+                // Remove catalog and its featured image
+                const newFeatured = { ...prev.featuredImageByCatalog };
+                delete newFeatured[catalogId];
+
+                return {
+                    ...prev,
+                    catalogIds: prev.catalogIds.filter(
+                        (id) => id !== catalogId,
+                    ),
+                    featuredImageByCatalog: newFeatured,
+                };
+            } else {
+                // Add catalog
+                return {
+                    ...prev,
+                    catalogIds: [...prev.catalogIds, catalogId],
+                };
+            }
+        });
+    };
+
+    /* ---------------------------------------------------------------------- */
+    /*                         FEATURED IMAGE SELECTION                       */
+    /* ---------------------------------------------------------------------- */
+
+    const setFeaturedImageForCatalog = (catalogId: number, imageId: number) => {
         setForm((prev) => ({
             ...prev,
-            title: selectedVendor.businessName,
-            description: selectedVendor.businessDescription ?? "",
-            images: selectedVendor.businessPhotos ?? [],
-            featuredImageIndex: 0,
+            featuredImageByCatalog: {
+                ...prev.featuredImageByCatalog,
+                [catalogId]: imageId,
+            },
         }));
-        console.log(
-            selectedVendor.businessName,
-            selectedVendor.businessDescription,
-            selectedVendor.businessPhotos,
-        );
-    }, [selectedVendor, useCustomContent, isEditMode]);
+    };
 
     /* ---------------------------------------------------------------------- */
     /*                              IMAGE LOGIC                                */
@@ -133,33 +347,9 @@ export function VendorMarketplaceForm({ initialData, onSubmit }: Props) {
     const addCustomImage = () => {
         const url = prompt("Enter image URL");
         if (!url) return;
-
-        setForm((prev) => ({
-            ...prev,
-            images: [...prev.images, url],
-        }));
-    };
-
-    const addVendorPhoto = (photo: string) => {
-        if (form.images.includes(photo)) return;
-
-        setForm((prev) => ({
-            ...prev,
-            images: [...prev.images, photo],
-        }));
-    };
-
-    const removeImage = (index: number) => {
-        setForm((prev) => ({
-            ...prev,
-            images: prev.images.filter((_, i) => i !== index),
-            featuredImageIndex:
-                prev.featuredImageIndex === index
-                    ? 0
-                    : prev.featuredImageIndex > index
-                      ? prev.featuredImageIndex - 1
-                      : prev.featuredImageIndex,
-        }));
+        toast.info(
+            "Custom images are not supported in this version. Please use catalog images.",
+        );
     };
 
     /* ---------------------------------------------------------------------- */
@@ -172,24 +362,41 @@ export function VendorMarketplaceForm({ initialData, onSubmit }: Props) {
             return;
         }
 
-        if (!form.images.length) {
-            toast.error("At least one image is required");
+        if (form.catalogIds.length === 0) {
+            toast.error("Please select at least one catalog");
             return;
         }
 
-        if (form.basePriceSingleDay <= 0 || form.basePriceMultiDay <= 0) {
-            toast.error("Prices must be greater than zero");
+        // Check if all catalogs have featured images
+        for (const catalogId of form.catalogIds) {
+            if (!form.featuredImageByCatalog[catalogId]) {
+                const catalog = vendorCatalogs.find((c) => c.id === catalogId);
+                toast.error(
+                    `Please select a featured image for catalog: ${catalog?.title}`,
+                );
+                return;
+            }
+        }
+
+        if (form.basePriceSingleDay <= 0) {
+            toast.error("Session/Single day price must be greater than zero");
+            return;
+        }
+
+        if (!form.isSessionBased && form.basePriceMultiDay <= 0) {
+            toast.error("Multi day price must be greater than zero");
             return;
         }
 
         const payload: CreateVendorProductPayload = {
             vendorId: form.vendorId,
+            catalogIds: form.catalogIds,
+            featuredImageByCatalog: form.featuredImageByCatalog,
 
             title: form.title,
             description: form.description || undefined,
 
-            images: form.images,
-            featuredImageIndex: form.featuredImageIndex,
+            isSessionBased: form.isSessionBased,
 
             basePriceSingleDay: form.basePriceSingleDay,
             basePriceMultiDay: form.basePriceMultiDay,
@@ -199,6 +406,7 @@ export function VendorMarketplaceForm({ initialData, onSubmit }: Props) {
             advanceValue: form.advanceValue ?? undefined,
 
             isFeatured: form.isFeatured,
+            isPriority: form.isPriority,
             isActive: form.isActive,
         };
 
@@ -238,50 +446,134 @@ export function VendorMarketplaceForm({ initialData, onSubmit }: Props) {
                 <CardHeader>
                     <CardTitle className="text-lg">Vendor Selection</CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <Label>Select Vendor</Label>
-                    <Select
-                        value={form.vendorId?.toString() ?? ""}
-                        onValueChange={(v) =>
-                            setForm((prev) => ({
-                                ...prev,
-                                vendorId: Number(v),
-                            }))
-                        }
-                        disabled={isEditMode}
-                    >
-                        <SelectTrigger className="mt-1.5">
-                            <SelectValue placeholder="Choose vendor..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {vendors.map((v) => (
-                                <SelectItem
-                                    key={v.vendorId}
-                                    value={String(v.vendorId)}
-                                >
-                                    <div className="flex flex-col">
-                                        <span className="font-medium">
-                                            {v.fullName}
-                                        </span>
-                                        <span className="text-xs text-muted-foreground">
-                                            {v.occupation} • {v.businessName}
-                                        </span>
-                                    </div>
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                <CardContent className="space-y-4">
+                    <div>
+                        <Label>Select Vendor</Label>
+                        <Select
+                            value={form.vendorId?.toString() ?? ""}
+                            onValueChange={(v) =>
+                                setForm((prev) => ({
+                                    ...prev,
+                                    vendorId: Number(v),
+                                    catalogIds: [],
+                                    featuredImageByCatalog: {},
+                                }))
+                            }
+                            disabled={isEditMode}
+                        >
+                            <SelectTrigger className="mt-1.5">
+                                <SelectValue placeholder="Choose vendor..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {vendors.map((v) => (
+                                    <SelectItem
+                                        key={v.vendorId}
+                                        value={String(v.vendorId)}
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="font-medium">
+                                                {v.fullName}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {v.occupation} •{" "}
+                                                {v.businessName}
+                                            </span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* ---------------- CATALOG SELECTION ---------------- */}
+                    {form.vendorId && (
+                        <div>
+                            <Label className="mb-2 block">
+                                Select Catalogs (Multiple)
+                            </Label>
+                            {loadingCatalogs ? (
+                                <p className="text-sm text-muted-foreground">
+                                    Loading catalogs...
+                                </p>
+                            ) : vendorCatalogs.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">
+                                    No catalogs available for this vendor
+                                </p>
+                            ) : (
+                                <div className="space-y-3 max-h-96 overflow-y-auto border rounded-lg p-4">
+                                    {vendorCatalogs.map((catalog) => (
+                                        <div
+                                            key={catalog.id}
+                                            className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                                        >
+                                            <Checkbox
+                                                id={`catalog-${catalog.id}`}
+                                                checked={form.catalogIds.includes(
+                                                    catalog.id,
+                                                )}
+                                                onCheckedChange={() =>
+                                                    toggleCatalog(catalog.id)
+                                                }
+                                                disabled={
+                                                    isEditMode &&
+                                                    isHydrated &&
+                                                    !form.catalogIds.includes(
+                                                        catalog.id,
+                                                    )
+                                                }
+                                            />
+                                            <div className="flex-1">
+                                                <label
+                                                    htmlFor={`catalog-${catalog.id}`}
+                                                    className="font-medium cursor-pointer"
+                                                >
+                                                    {catalog.title}
+                                                </label>
+                                                {catalog.description && (
+                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                        {catalog.description.substring(
+                                                            0,
+                                                            100,
+                                                        )}
+                                                        {catalog.description
+                                                            .length > 100 &&
+                                                            "..."}
+                                                    </p>
+                                                )}
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    {catalog.images.length}{" "}
+                                                    {catalog.images.length === 1
+                                                        ? "image"
+                                                        : "images"}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {form.catalogIds.length > 0 && (
+                                <p className="text-sm text-muted-foreground mt-2">
+                                    {form.catalogIds.length} catalog
+                                    {form.catalogIds.length === 1
+                                        ? ""
+                                        : "s"}{" "}
+                                    selected
+                                </p>
+                            )}
+                        </div>
+                    )}
 
                     {/* ---------------- AUTO FILL TOGGLE ---------------- */}
-                    {selectedVendor && !isEditMode && (
+                    {selectedCatalogs.length > 0 && !isEditMode && (
                         <div className="mt-4 p-4 border-2 border-dashed rounded-lg bg-muted/30">
                             <div className="flex justify-between items-center">
                                 <div>
                                     <p className="font-medium">
-                                        Use vendor business info
+                                        Use catalog content
                                     </p>
                                     <p className="text-sm text-muted-foreground">
-                                        Auto-fill title, description & images
+                                        Auto-fill title & description from
+                                        selected catalogs
                                     </p>
                                 </div>
                                 <Switch
@@ -314,7 +606,7 @@ export function VendorMarketplaceForm({ initialData, onSubmit }: Props) {
                             }
                             disabled={
                                 !useCustomContent &&
-                                !!selectedVendor &&
+                                selectedCatalogs.length > 0 &&
                                 !isEditMode
                             }
                             className="mt-1.5"
@@ -334,7 +626,7 @@ export function VendorMarketplaceForm({ initialData, onSubmit }: Props) {
                             }
                             disabled={
                                 !useCustomContent &&
-                                !!selectedVendor &&
+                                selectedCatalogs.length > 0 &&
                                 !isEditMode
                             }
                             className="mt-1.5"
@@ -349,9 +641,35 @@ export function VendorMarketplaceForm({ initialData, onSubmit }: Props) {
                     <CardTitle className="text-lg">Pricing Details</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                    {/* Session-Based Toggle */}
+                    <div className="flex items-center gap-3 p-4 border rounded-lg bg-muted/30">
+                        <Switch
+                            checked={form.isSessionBased}
+                            onCheckedChange={(v) =>
+                                setForm((prev) => ({
+                                    ...prev,
+                                    isSessionBased: v,
+                                }))
+                            }
+                        />
+                        <div>
+                            <Label className="cursor-pointer">
+                                Session-Based Pricing
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                                Enable for hourly/session pricing (disables
+                                multi-day pricing)
+                            </p>
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <Label>Single Day Price (₹)</Label>
+                            <Label>
+                                {form.isSessionBased
+                                    ? "Session Price (₹)"
+                                    : "Single Day Price (₹)"}
+                            </Label>
                             <Input
                                 type="number"
                                 value={form.basePriceSingleDay}
@@ -366,27 +684,31 @@ export function VendorMarketplaceForm({ initialData, onSubmit }: Props) {
                                 className="mt-1.5"
                             />
                         </div>
-                        <div>
-                            <Label>Multi Day Price (₹)</Label>
-                            <Input
-                                type="number"
-                                value={form.basePriceMultiDay}
-                                onChange={(e) =>
-                                    setForm((prev) => ({
-                                        ...prev,
-                                        basePriceMultiDay: Number(
-                                            e.target.value,
-                                        ),
-                                    }))
-                                }
-                                className="mt-1.5"
-                            />
-                        </div>
+                        {!form.isSessionBased && (
+                            <div>
+                                <Label>Multi Day Price (₹)</Label>
+                                <Input
+                                    type="number"
+                                    value={form.basePriceMultiDay}
+                                    onChange={(e) =>
+                                        setForm((prev) => ({
+                                            ...prev,
+                                            basePriceMultiDay: Number(
+                                                e.target.value,
+                                            ),
+                                        }))
+                                    }
+                                    className="mt-1.5"
+                                />
+                            </div>
+                        )}
                     </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <Label className="mb-1.5 block">Advance Payment</Label>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <Label className="mb-1.5 block">
+                                Advance Payment
+                            </Label>
                             <Select
                                 value={form.advanceType}
                                 onValueChange={(v) =>
@@ -408,150 +730,117 @@ export function VendorMarketplaceForm({ initialData, onSubmit }: Props) {
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
-                            </div>
-                            <div>
-                                <Label>Advance Value (₹)</Label>
-                                <Input
-                                    type="number"
-                                    placeholder={
-                                        form.advanceType === "PERCENTAGE"
-                                            ? "%"
-                                            : "₹"
-                                    }
-                                    value={form.advanceValue ?? ""}
-                                    onChange={(e) =>
-                                        setForm((prev) => ({
-                                            ...prev,
-                                            advanceValue:
-                                                e.target.value === ""
-                                                    ? null
-                                                    : Number(e.target.value),
-                                        }))
-                                    }
-                                />
-                            </div>
+                        </div>
+                        <div>
+                            <Label>Advance Value</Label>
+                            <Input
+                                type="number"
+                                placeholder={
+                                    form.advanceType === "PERCENTAGE"
+                                        ? "%"
+                                        : "₹"
+                                }
+                                value={form.advanceValue ?? ""}
+                                onChange={(e) =>
+                                    setForm((prev) => ({
+                                        ...prev,
+                                        advanceValue:
+                                            e.target.value === ""
+                                                ? null
+                                                : Number(e.target.value),
+                                    }))
+                                }
+                                className="mt-1.5"
+                            />
+                        </div>
                     </div>
                 </CardContent>
             </Card>
 
-            {/* ---------------- IMAGES ---------------- */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-lg">Product Images</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {selectedVendor?.businessPhotos?.length ? (
-                        <div>
-                            <Label className="mb-2 block">
-                                Vendor Business Photos
-                            </Label>
-                            <div className="flex flex-wrap gap-2">
-                                {selectedVendor.businessPhotos.map((img, i) => {
-                                    const added = form.images.includes(img);
-                                    return (
-                                        <button
-                                            key={i}
-                                            type="button"
-                                            disabled={added}
-                                            onClick={() => addVendorPhoto(img)}
-                                            className={`relative w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${
-                                                added
-                                                    ? "border-primary opacity-50 cursor-not-allowed"
-                                                    : "border-border hover:border-primary hover:shadow-md"
-                                            }`}
-                                        >
-                                            <Zoom>
-
-                                            <img
-                                                src={img}
-                                                alt={`Vendor photo ${i + 1}`}
-                                                className="w-full h-full object-cover"
-                                                />
-                                                </Zoom>
-                                            {!added && (
-                                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                                                    <ImagePlus className="h-5 w-5 text-white" />
-                                                </div>
-                                            )}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    ) : null}
-
-                    <div>
-                        <Label className="mb-2 block">Selected Images</Label>
-                        <div className="grid grid-cols-3 gap-4">
-                            {form.images.map((img, i) => (
-                                <div
-                                    key={i}
-                                    className={`relative rounded-lg overflow-hidden border-2 transition-all cursor-pointer group ${
-                                        i === form.featuredImageIndex
-                                            ? "border-primary ring-2 ring-primary/20 shadow-lg"
-                                            : "border-border hover:border-primary"
-                                    }`}
-                                    onClick={() =>
-                                        setForm((prev) => ({
-                                            ...prev,
-                                            featuredImageIndex: i,
-                                        }))
-                                    }
-                                >
-
-                                    <img
-                                        src={img}
-                                        alt={`Product image ${i + 1}`}
-                                        className="h-32 w-full object-cover"
-                                        />
-
-                                    {/* Featured Badge */}
-                                    {i === form.featuredImageIndex && (
-                                        <div className="absolute top-2 left-2 bg-gradient-primary text-white text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1">
-                                            <Star className="h-3 w-3 fill-current" />
-                                            Featured
+            {/* ---------------- CATALOG IMAGES WITH FEATURED SELECTION ---------------- */}
+            {!loadingCatalogs && selectedCatalogs.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg">
+                            Catalog Images - Select Featured Image Per Catalog
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        {selectedCatalogs.map((catalog) => (
+                            <div
+                                key={catalog.id}
+                                className="border rounded-lg p-4 space-y-3"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h3 className="font-semibold">
+                                            {catalog.title}
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground">
+                                            Select one image as featured for
+                                            this catalog
+                                        </p>
+                                    </div>
+                                    {form.featuredImageByCatalog[
+                                        catalog.id
+                                    ] && (
+                                        <div className="flex items-center gap-2 text-green-600">
+                                            <Check className="h-4 w-4" />
+                                            <span className="text-sm font-medium">
+                                                Featured selected
+                                            </span>
                                         </div>
                                     )}
-
-                                    {/* Remove Button */}
-                                    <Button
-                                        type="button"
-                                        variant="destructive"
-                                        size="icon"
-                                        className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            removeImage(i);
-                                        }}
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </Button>
-
-                                    {/* Hover Overlay */}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                                 </div>
-                            ))}
 
-                            {/* Add Image Button */}
-                            <button
-                                type="button"
-                                onClick={addCustomImage}
-                                className="h-32 border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-all hover:bg-primary/5"
-                            >
-                                <Upload className="h-6 w-6 mb-2" />
-                                <span className="text-sm font-medium">
-                                    Add Image
-                                </span>
-                            </button>
-                        </div>
-                        {form.images.length > 0 && (
-                            <p className="text-xs text-muted-foreground mt-2">
-                                Click on an image to set it as featured
-                            </p>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
+                                <div className="grid grid-cols-4 gap-3">
+                                    {catalog.images.map((img) => {
+                                        const isFeatured =
+                                            form.featuredImageByCatalog[
+                                                catalog.id
+                                            ] === img.id;
+
+                                        return (
+                                            <button
+                                                key={img.id}
+                                                type="button"
+                                                onClick={() =>
+                                                    setFeaturedImageForCatalog(
+                                                        catalog.id,
+                                                        img.id,
+                                                    )
+                                                }
+                                                className={`relative rounded-lg overflow-hidden border-2 transition-all ${
+                                                    isFeatured
+                                                        ? "border-primary ring-2 ring-primary/20 shadow-lg"
+                                                        : "border-border hover:border-primary"
+                                                }`}
+                                            >
+                                                <Zoom>
+                                                    <img
+                                                        src={img.imageUrl}
+                                                        alt={`${catalog.title} - Image ${img.sortOrder}`}
+                                                        className="w-full h-24 object-cover"
+                                                    />
+                                                </Zoom>
+
+                                                {isFeatured && (
+                                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                        <div className="bg-primary text-white text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1">
+                                                            <Star className="h-3 w-3 fill-current" />
+                                                            Featured
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
+            )}
 
             {/* ---------------- SETTINGS ---------------- */}
             <Card>
@@ -559,7 +848,7 @@ export function VendorMarketplaceForm({ initialData, onSubmit }: Props) {
                     <CardTitle className="text-lg">Listing Settings</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex gap-8">
+                    <div className="flex gap-8 flex-wrap">
                         <div className="flex items-center gap-3">
                             <Switch
                                 checked={form.isActive}
@@ -593,6 +882,25 @@ export function VendorMarketplaceForm({ initialData, onSubmit }: Props) {
                                 </Label>
                                 <p className="text-xs text-muted-foreground">
                                     Show in featured section
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Switch
+                                checked={form.isPriority}
+                                onCheckedChange={(v) =>
+                                    setForm((prev) => ({
+                                        ...prev,
+                                        isPriority: v,
+                                    }))
+                                }
+                            />
+                            <div>
+                                <Label className="cursor-pointer">
+                                    Priority
+                                </Label>
+                                <p className="text-xs text-muted-foreground">
+                                    High priority listing
                                 </p>
                             </div>
                         </div>

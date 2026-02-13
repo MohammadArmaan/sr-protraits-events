@@ -1,13 +1,24 @@
 "use client";
 
-import { useMemo } from "react";
-import { MoreVertical, Eye, Pencil, Trash2, Plus, Star } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+    MoreVertical,
+    Eye,
+    Pencil,
+    Trash2,
+    Plus,
+    Star,
+    Zap,
+    Search,
+} from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import Zoom from "react-medium-image-zoom";
 
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
     Table,
     TableBody,
@@ -27,11 +38,10 @@ import { useAdminVendorProducts } from "@/hooks/queries/admin/vendor-marketplace
 import { useDeleteVendorProduct } from "@/hooks/queries/admin/vendor-marketplace/useDeleteVendorProduct";
 import { VendorProduct } from "@/types/vendor-product";
 import { MarketplaceTableSkeleton } from "@/components/skeleton/MarketplaceTableSkeleton";
-import Zoom from "react-medium-image-zoom";
 import { MarketplacePagination } from "./MarketplacePagination";
+import { AdminVendorProduct } from "@/types/admin/vendor-products";
 
 const PAGE_SIZE = 8;
-
 
 export default function AdminVendorMarketplace() {
     const router = useRouter();
@@ -39,8 +49,12 @@ export default function AdminVendorMarketplace() {
 
     const page = Number(searchParams.get("page") ?? 1);
     const status = searchParams.get("status"); // active | inactive
-    const featured = searchParams.get("featured"); // true | false
+    const featured = searchParams.get("featured"); // true
+    const priority = searchParams.get("priority"); // true
+    const session = searchParams.get("session"); // true
     const sort = searchParams.get("sort") ?? "createdAt";
+
+    const [search, setSearch] = useState("");
 
     const { data, isLoading } = useAdminVendorProducts();
     const deleteMutation = useDeleteVendorProduct();
@@ -54,6 +68,17 @@ export default function AdminVendorMarketplace() {
         if (status === "active") list = list.filter((p) => p.isActive);
         if (status === "inactive") list = list.filter((p) => !p.isActive);
         if (featured === "true") list = list.filter((p) => p.isFeatured);
+        if (priority === "true") list = list.filter((p) => p.isPriority);
+        if (session === "true") list = list.filter((p) => p.isSessionBased);
+
+        if (search.trim()) {
+            const q = search.toLowerCase();
+            list = list.filter(
+                (p) =>
+                    p.title.toLowerCase().includes(q) ||
+                    p.businessName.toLowerCase().includes(q),
+            );
+        }
 
         if (sort === "price") {
             list.sort((a, b) => a.basePriceSingleDay - b.basePriceSingleDay);
@@ -66,7 +91,7 @@ export default function AdminVendorMarketplace() {
         }
 
         return list;
-    }, [products, status, featured, sort]);
+    }, [products, status, featured, priority, session, sort, search]);
 
     const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
     const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -80,20 +105,31 @@ export default function AdminVendorMarketplace() {
         router.push(`?${params.toString()}`);
     };
 
-    const handleDelete = async (product: VendorProduct) => {
+    const handleDelete = async (product: AdminVendorProduct) => {
         await deleteMutation.mutateAsync(product.id);
         toast.success("Listing deleted");
     };
 
+    const getFeaturedImage = (product: AdminVendorProduct) => {
+        if (product.featuredImageUrl) {
+            return (
+                product.featuredImageUrl
+            );
+        }
+        return "/placeholder.jpg";
+    };
+
     /* ---------------- UI ---------------- */
     return (
-        <div className="animate-fade-in">
+        <div className="animate-fade-in space-y-4">
             <PageHeader
                 title="Vendor Marketplace"
                 description="Manage vendor listings and marketplace visibility"
             >
                 <Button
-                    onClick={() => router.push("/admin/vendor-marketplace/new")}
+                    onClick={() =>
+                        router.push("/admin/vendor-marketplace/new")
+                    }
                     className="bg-gradient-primary text-primary-foreground"
                 >
                     <Plus className="mr-2 h-4 w-4" />
@@ -101,26 +137,53 @@ export default function AdminVendorMarketplace() {
                 </Button>
             </PageHeader>
 
-            {/* Filters */}
-            <div className="flex flex-wrap gap-3 mb-4">
+            {/* Search + Filters */}
+            <div className="flex flex-wrap gap-3 items-center">
+                <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Search listing or business..."
+                        className="pl-9 w-64"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                </div>
+
                 <Button
                     variant={status === "active" ? "default" : "outline"}
                     onClick={() => setParam("status", "active")}
                 >
                     Active
                 </Button>
+
                 <Button
                     variant={featured === "true" ? "default" : "outline"}
                     onClick={() => setParam("featured", "true")}
                 >
                     Featured
                 </Button>
+
+                <Button
+                    variant={priority === "true" ? "default" : "outline"}
+                    onClick={() => setParam("priority", "true")}
+                >
+                    Priority
+                </Button>
+
+                <Button
+                    variant={session === "true" ? "default" : "outline"}
+                    onClick={() => setParam("session", "true")}
+                >
+                    Session Based
+                </Button>
+
                 <Button
                     variant={sort === "price" ? "default" : "outline"}
                     onClick={() => setParam("sort", "price")}
                 >
                     Sort by Price
                 </Button>
+
                 <Button
                     variant="ghost"
                     onClick={() => router.push("/admin/vendor-marketplace")}
@@ -139,7 +202,9 @@ export default function AdminVendorMarketplace() {
                             <TableRow className="bg-muted/50">
                                 <TableHead>Listing</TableHead>
                                 <TableHead>Pricing</TableHead>
+                                <TableHead>Session</TableHead>
                                 <TableHead>Status</TableHead>
+                                <TableHead>Priority</TableHead>
                                 <TableHead>Featured</TableHead>
                                 <TableHead className="w-12" />
                             </TableRow>
@@ -152,15 +217,12 @@ export default function AdminVendorMarketplace() {
                                     className="hover:bg-muted/30"
                                 >
                                     <TableCell>
-                                        <div className="flex gap-3">
+                                        <div className="flex gap-3 items-center">
                                             <Zoom>
                                                 <img
-                                                    src={
-                                                        product.images[
-                                                            product
-                                                                .featuredImageIndex
-                                                        ]
-                                                    }
+                                                    src={getFeaturedImage(
+                                                        product,
+                                                    )}
                                                     className="h-12 w-12 rounded-lg object-cover border"
                                                 />
                                             </Zoom>
@@ -177,14 +239,24 @@ export default function AdminVendorMarketplace() {
 
                                     <TableCell>
                                         <p className="font-medium">
-                                            ₹{product.basePriceSingleDay} / day
+                                            ₹{product.basePriceSingleDay}
                                         </p>
-                                        <p className="text-sm text-muted-foreground">
-                                            Advance:{" "}
+                                        <p className="text-xs text-muted-foreground">
+                                            Advance{" "}
                                             {product.advanceType === "FIXED"
                                                 ? `₹${product.advanceValue}`
                                                 : `${product.advanceValue}%`}
                                         </p>
+                                    </TableCell>
+
+                                    <TableCell>
+                                        {product.isSessionBased ? (
+                                            <Badge variant="secondary">
+                                                Session
+                                            </Badge>
+                                        ) : (
+                                            <Badge variant="outline">Day</Badge>
+                                        )}
                                     </TableCell>
 
                                     <TableCell>
@@ -199,6 +271,14 @@ export default function AdminVendorMarketplace() {
                                                 ? "Active"
                                                 : "Inactive"}
                                         </Badge>
+                                    </TableCell>
+
+                                    <TableCell>
+                                        {product.isPriority ? (
+                                            <Zap className="h-4 w-4 text-orange-500" />
+                                        ) : (
+                                            "-"
+                                        )}
                                     </TableCell>
 
                                     <TableCell>
@@ -231,6 +311,7 @@ export default function AdminVendorMarketplace() {
                                                     <Eye className="mr-2 h-4 w-4" />
                                                     View
                                                 </DropdownMenuItem>
+
                                                 <DropdownMenuItem
                                                     onClick={() =>
                                                         router.push(
@@ -241,6 +322,7 @@ export default function AdminVendorMarketplace() {
                                                     <Pencil className="mr-2 h-4 w-4" />
                                                     Edit
                                                 </DropdownMenuItem>
+
                                                 <DropdownMenuItem
                                                     onClick={() =>
                                                         handleDelete(product)
@@ -259,7 +341,7 @@ export default function AdminVendorMarketplace() {
                             {paginated.length === 0 && (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={5}
+                                        colSpan={7}
                                         className="text-center py-8 text-muted-foreground"
                                     >
                                         No marketplace listings found
@@ -269,7 +351,6 @@ export default function AdminVendorMarketplace() {
                         </TableBody>
                     </Table>
 
-                    {/* Pagination */}
                     {totalPages > 1 && (
                         <MarketplacePagination
                             page={page}

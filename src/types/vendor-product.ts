@@ -1,4 +1,18 @@
-export type AdvanceType = "PERCENTAGE" | "FIXED";
+export interface VendorProductImage {
+    id: number;
+    catalogId: number;
+    imageUrl: string;
+    isFeatured: boolean;
+    sortOrder: number;
+}
+
+export interface ImagesByCatalog {
+    [catalogId: number]: {
+        catalogTitle: string;
+        featuredImageId: number | null;
+        images: VendorProductImage[];
+    };
+}
 
 export interface VendorProduct {
     id: number;
@@ -17,38 +31,12 @@ export interface VendorProduct {
     rating: number;
     ratingCount: number;
 
-    businessName?: string;
     occupation: string;
 
-    images: string[];
-    featuredImageIndex: number;
+    featuredImageUrl: string
+
+    isSessionBased: boolean;
+    maxSessionHours: number;
+
+    imagesByCatalog: ImagesByCatalog;
 }
-
-/* ------------------ Related Products Types ------------------ */
-
-
-export interface RelatedVendorProduct {
-    id: number;
-    uuid: string;
-    title: string;
-
-    basePriceSingleDay: string;
-    basePriceMultiDay: string;
-
-    advanceType: AdvanceType;
-    advanceValue: string | null;
-
-    rating: string;
-    ratingCount: number;
-
-    businessName: string;
-    occupation: string;
-
-    images: string[];
-    featuredImageIndex: number;
-}
-
-export interface RelatedVendorProductsResponse {
-    products: RelatedVendorProduct[];
-}
-

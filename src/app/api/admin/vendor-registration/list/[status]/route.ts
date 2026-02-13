@@ -1,58 +1,61 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/config/db";
 import { vendorsTable } from "@/config/vendorsSchema";
-import { vendorBankDetailsTable } from "@/config/vendorBankDetailsSchema";
 import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 
+const ALLOWED_STATUSES = [
+    "ACTIVE",
+    "PENDING",
+    "REJECTED",
+    "SUSPENDED",
+];
+
 export async function GET(
     req: NextRequest,
-    context: { params: Promise<{ id: string }> }
+    context: { params: Promise<{ status: string }> }
 ) {
     try {
-        const { id } = await context.params;
-        const vendorId = Number(id);
+        const { status } = await context.params;
+        const normalizedStatus = status.toUpperCase();
 
-        if (!vendorId || Number.isNaN(vendorId)) {
+        /* ---------------- VALIDATE STATUS ---------------- */
+        if (!ALLOWED_STATUSES.includes(normalizedStatus)) {
             return NextResponse.json(
-                { error: "Invalid vendor id" },
-                { status: 400 },
+                { error: "Invalid vendor status" },
+                { status: 400 }
             );
         }
 
-        // -----------------------------
-        // Validate admin token
-        // -----------------------------
+        /* ---------------- AUTH ---------------- */
         const token = req.cookies.get("admin_token")?.value;
-
         if (!token) {
             return NextResponse.json(
                 { error: "Unauthorized" },
-                { status: 401 },
+                { status: 401 }
             );
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
             adminId: number;
-            role: string;
+            role: "admin" | "superadmin";
         };
 
-        if (decoded.role !== "admin") {
+        if (!["admin", "superadmin"].includes(decoded.role)) {
             return NextResponse.json(
-                { error: "Forbidden: Admins only" },
-                { status: 403 },
+                { error: "Forbidden" },
+                { status: 403 }
             );
         }
 
-        // -----------------------------
-        // Fetch vendor
-        // -----------------------------
-        const [vendor] = await db
+        /* ---------------- FETCH VENDORS ---------------- */
+        const vendors = await db
             .select({
-                id: vendorsTable.id,
+                vendorId: vendorsTable.id,
                 fullName: vendorsTable.fullName,
                 businessName: vendorsTable.businessName,
                 occupation: vendorsTable.occupation,
+
                 phone: vendorsTable.phone,
                 email: vendorsTable.email,
                 address: vendorsTable.address,
@@ -60,65 +63,33 @@ export async function GET(
                 businessDescription: vendorsTable.businessDescription,
                 profilePhoto: vendorsTable.profilePhoto,
 
-                // ✅ Professional metrics
                 yearsOfExperience: vendorsTable.yearsOfExperience,
                 successfulEventsCompleted:
                     vendorsTable.successfulEventsCompleted,
                 points: vendorsTable.points,
 
-                // ✅ Compliance
                 gstNumber: vendorsTable.gstNumber,
 
-                // ✅ Admin / lifecycle
                 status: vendorsTable.status,
                 isApproved: vendorsTable.isApproved,
                 approvedAt: vendorsTable.approvedAt,
                 createdAt: vendorsTable.createdAt,
             })
             .from(vendorsTable)
-            .where(eq(vendorsTable.id, vendorId));
-
-        if (!vendor) {
-            return NextResponse.json(
-                { error: "Vendor not found" },
-                { status: 404 },
-            );
-        }
-
-        // -----------------------------
-        // Fetch bank details (nullable)
-        // -----------------------------
-        const [bankDetails] = await db
-            .select({
-                accountHolderName:
-                    vendorBankDetailsTable.accountHolderName,
-                accountNumber: vendorBankDetailsTable.accountNumber,
-                ifscCode: vendorBankDetailsTable.ifscCode,
-                isPayoutReady: vendorBankDetailsTable.isPayoutReady,
-                isEdited: vendorBankDetailsTable.isEdited,
-                confirmedAt: vendorBankDetailsTable.confirmedAt,
-                pendingChanges: vendorBankDetailsTable.pendingChanges,
-                adminApprovedAt:
-                    vendorBankDetailsTable.adminApprovedAt,
-            })
-            .from(vendorBankDetailsTable)
-            .where(eq(vendorBankDetailsTable.vendorId, vendorId));
+            .where(eq(vendorsTable.status, normalizedStatus));
 
         return NextResponse.json(
             {
                 success: true,
-                vendor: {
-                    ...vendor,
-                    bankDetails: bankDetails ?? null,
-                },
+                vendors, // ✅ ARRAY
             },
-            { status: 200 },
+            { status: 200 }
         );
     } catch (error) {
-        console.error("Vendor details fetch error:", error);
+        console.error("Fetch vendors by status error:", error);
         return NextResponse.json(
-            { error: "Server error fetching vendor details" },
-            { status: 500 },
+            { error: "Server error fetching vendors" },
+            { status: 500 }
         );
     }
 }

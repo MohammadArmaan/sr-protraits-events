@@ -4,8 +4,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/config/db";
 import { vendorProductsTable } from "@/config/vendorProductsSchema";
+import { vendorsTable } from "@/config/vendorsSchema";
 import { requireAdmin } from "@/lib/admin/requireAdmin";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
@@ -17,32 +18,55 @@ export async function GET(req: NextRequest) {
         /* ---------------- FETCH PRODUCTS ---------------- */
         const products = await db
             .select({
+                /* Product */
                 id: vendorProductsTable.id,
                 uuid: vendorProductsTable.uuid,
-
-                vendorId: vendorProductsTable.vendorId,
-                businessName: vendorProductsTable.businessName,
-                occupation: vendorProductsTable.occupation,
 
                 title: vendorProductsTable.title,
                 description: vendorProductsTable.description,
 
                 images: vendorProductsTable.images,
-                featuredImageIndex: vendorProductsTable.featuredImageIndex,
+                featuredImageIndex:
+                    vendorProductsTable.featuredImageIndex,
 
-                basePriceSingleDay: vendorProductsTable.basePriceSingleDay,
-                basePriceMultiDay: vendorProductsTable.basePriceMultiDay,
+                basePriceSingleDay:
+                    vendorProductsTable.basePriceSingleDay,
+                basePriceMultiDay:
+                    vendorProductsTable.basePriceMultiDay,
                 pricingUnit: vendorProductsTable.pricingUnit,
 
                 advanceType: vendorProductsTable.advanceType,
                 advanceValue: vendorProductsTable.advanceValue,
 
                 isFeatured: vendorProductsTable.isFeatured,
+                isPriority: vendorProductsTable.isPriority,
                 isActive: vendorProductsTable.isActive,
 
+                featuredImageUrl: vendorProductsTable.featuredImageUrl,
+
+                isSessionBased:
+                    vendorProductsTable.isSessionBased,
+                maxSessionHours:
+                    vendorProductsTable.maxSessionHours,
+
                 createdAt: vendorProductsTable.createdAt,
+
+                /* Vendor (live data) */
+                vendorId: vendorsTable.id,
+                vendorName:
+                    vendorsTable.businessName,
+                vendorFullName:
+                    vendorsTable.fullName,
+                occupation: vendorsTable.occupation,
+                vendorStatus: vendorsTable.status,
+                isVendorApproved:
+                    vendorsTable.isApproved,
             })
             .from(vendorProductsTable)
+            .innerJoin(
+                vendorsTable,
+                eq(vendorProductsTable.vendorId, vendorsTable.id),
+            )
             .orderBy(desc(vendorProductsTable.createdAt));
 
         return NextResponse.json(

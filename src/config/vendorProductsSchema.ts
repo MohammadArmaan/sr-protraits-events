@@ -34,6 +34,7 @@ export const vendorProductsTable = pgTable("vendor_products", {
     /* -------- Media -------- */
     images: varchar("images", { length: 500 }).array().default([]),
     featuredImageIndex: integer("featuredImageIndex").default(0),
+    featuredImageUrl: varchar("featured_image_url", { length: 500 }),
 
     /* -------- Snapshot Business Info -------- */
     businessName: varchar("businessName", { length: 255 }).notNull(),
@@ -74,6 +75,10 @@ export const vendorProductsTable = pgTable("vendor_products", {
     /* -------- Flags -------- */
     isFeatured: boolean("isFeatured").default(false),
     isActive: boolean("isActive").default(true),
+    isPriority: boolean("isPriority").default(false),
+    isSessionBased: boolean("isSessionBased").default(false),
+
+    maxSessionHours: integer("maxSessionHours").default(8),
 
     /* -------- Audit -------- */
     createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow(),

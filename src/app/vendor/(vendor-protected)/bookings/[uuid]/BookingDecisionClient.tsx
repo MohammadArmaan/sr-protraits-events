@@ -3,7 +3,7 @@
 import { format, isBefore } from "date-fns";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Calendar, Clock, CreditCard, User } from "lucide-react";
+import { Calendar, Clock, CreditCard, NotebookIcon, User } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,12 +36,12 @@ export function BookingDecisionClient({ uuid }: Props) {
     const { booking } = data;
 
     const isExpired = isBefore(
-        new Date(booking.approvalExpiresAt),
-        new Date()
-    );
+    new Date(booking.approvalExpiresAt),
+    new Date()
+);
 
-    const isActionable =
-        booking.status === "PAYMENT_PENDING" && !isExpired;
+const isActionable =
+    booking.status !== "PAYMENT_PENDING" && !isExpired;
 
     /* ----------------------------------
        Payment breakdown (UI only)
@@ -99,13 +99,14 @@ const remainingAmount = Number(booking.remainingAmount);
 
                         {/* Details */}
                         <div className="space-y-2 text-sm">
-                            <p className="flex items-center gap-2">
-                                <User className="h-4 w-4" />
-                                Requested by{" "}
+                            {booking.notes && (
+                                <p className="flex items-center gap-2">
+                                <NotebookIcon className="h-4 w-4" />
+                                Note Left by Requester
                                 <strong>
-                                    {booking.bookedBy.businessName}
+                                    {booking.notes}
                                 </strong>
-                            </p>
+                            </p>)}
 
                             <p className="flex items-center gap-2">
                                 <Calendar className="h-4 w-4" />
@@ -163,7 +164,7 @@ const remainingAmount = Number(booking.remainingAmount);
                         Home
                     </Button>
 
-                    {!isActionable && (
+                    {isActionable && (
                         <>
                             <Button
                                 className="flex-1 bg-gradient-primary"

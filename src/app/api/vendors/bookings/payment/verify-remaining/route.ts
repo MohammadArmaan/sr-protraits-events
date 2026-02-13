@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { db } from "@/config/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { vendorPaymentsTable } from "@/config/vendorPaymentsSchema";
 import { vendorBookingsTable } from "@/config/vendorBookingsSchema";
@@ -13,7 +13,7 @@ import { vendorProductsTable } from "@/config/vendorProductsSchema";
 import { sendEmail } from "@/lib/sendEmail";
 import {
     generateInvoicePdf,
-    InvoiceData
+    InvoiceData,
 } from "@/lib/invoice-templates/generateInvoicePdf";
 
 import { remainingPaymentCompletedTemplate } from "@/lib/email-templates/remainingPaymentCompletedTemplate";
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
         if (expectedSignature !== razorpay_signature) {
             return NextResponse.json(
                 { error: "Invalid payment signature" },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
         if (!remainingPayment) {
             return NextResponse.json(
                 { error: "Remaining payment not found" },
-                { status: 404 }
+                { status: 404 },
             );
         }
 
@@ -71,14 +71,14 @@ export async function POST(req: NextRequest) {
             .where(
                 eq(
                     vendorBookingsTable.vendorProductId,
-                    remainingPayment.vendorProductId
-                )
+                    remainingPayment.vendorProductId,
+                ),
             );
 
         if (!booking || !booking.paymentId) {
             return NextResponse.json(
                 { error: "Booking or advance payment missing" },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
         if (!advancePayment || advancePayment.status !== "PAID") {
             return NextResponse.json(
                 { error: "Advance payment not completed" },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
         if (Number(totalPaid.toFixed(2)) !== Number(finalAmount.toFixed(2))) {
             return NextResponse.json(
                 { error: "Payment mismatch. Settlement aborted." },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
@@ -127,6 +127,15 @@ export async function POST(req: NextRequest) {
             })
             .where(eq(vendorBookingsTable.id, booking.id))
             .returning();
+
+        await db
+            .update(vendorsTable)
+            .set({
+                successfulEventsCompleted: sql`${vendorsTable.successfulEventsCompleted} + 1`,
+                points: sql`${vendorsTable.points} + 2`,
+                updatedAt: new Date(),
+            })
+            .where(eq(vendorsTable.id, booking.vendorId));
 
         /* ----------------------------------
            7️⃣ FETCH PARTIES
@@ -159,14 +168,8 @@ export async function POST(req: NextRequest) {
                 advanceAmount,
                 remainingAmount: 0,
 
-                provider: {
-                    name: provider.businessName,
-                    email: provider.email,
-                    phone: provider.phone,
-                    address: provider.address,
-                },
                 requester: {
-                    name: requester.businessName,
+                    name: requester.fullName,
                     email: requester.email,
                     phone: requester.phone,
                     address: requester.address,
@@ -179,16 +182,9 @@ export async function POST(req: NextRequest) {
                 to: provider.email,
                 subject: "Booking Settled – Payment Completed ✅",
                 html: remainingPaymentCompletedTemplate(
-                    provider.businessName,
-                    updatedBooking.uuid
+                    provider.fullName,
+                    updatedBooking.uuid,
                 ),
-                attachments: [
-                    {
-                        filename: `Invoice-${updatedBooking.uuid}.pdf`,
-                        content: invoicePdf,
-                        contentType: "application/pdf",
-                    },
-                ],
             });
 
             const [product] = await db
@@ -202,7 +198,7 @@ export async function POST(req: NextRequest) {
                     subject:
                         "Your Booking Is Completed – Share Your Experience 🌟",
                     html: requesterPaymentCompletedTemplate({
-                        requesterName: requester.businessName,
+                        requesterName: requester.fullName,
                         bookingRef: updatedBooking.uuid,
                         productUuid: product.uuid,
                     }),
@@ -216,10 +212,7 @@ export async function POST(req: NextRequest) {
                 });
             }
         } catch (invoiceError) {
-            console.error(
-                "Invoice/Email error (non-blocking):",
-                invoiceError
-            );
+            console.error("Invoice/Email error (non-blocking):", invoiceError);
         }
 
         return NextResponse.json({ success: true });
@@ -227,7 +220,7 @@ export async function POST(req: NextRequest) {
         console.error("Verify remaining payment error:", err);
         return NextResponse.json(
             { error: "Remaining payment verification failed" },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }
