@@ -15,7 +15,6 @@ import { adminsTable } from "./adminsSchema";
 export const vendorProductsTable = pgTable("vendor_products", {
     id: integer().primaryKey().generatedAlwaysAsIdentity(),
 
-    // Public-safe identifier
     uuid: uuid("uuid").defaultRandom().notNull().unique(),
 
     /* -------- Relations -------- */
@@ -41,34 +40,23 @@ export const vendorProductsTable = pgTable("vendor_products", {
     occupation: varchar("occupation", { length: 255 }).notNull(),
 
     /* -------- Pricing -------- */
-
-    // For SINGLE_DAY bookings (time based)
     basePriceSingleDay: numeric("basePriceSingleDay", {
         precision: 10,
         scale: 2,
     }).notNull(),
 
-    // For MULTI_DAY bookings (per day, full day)
     basePriceMultiDay: numeric("basePriceMultiDay", {
         precision: 10,
         scale: 2,
     }).notNull(),
 
     pricingUnit: varchar("pricingUnit", { length: 20 }).default("PER_DAY"),
-    /*
-      PER_DAY     → price × number of days
-      PER_EVENT   → future use
-    */
 
     /* -------- Advance Payment -------- */
     advanceType: varchar("advanceType", { length: 20 }).default("PERCENTAGE"),
-    /*
-      PERCENTAGE
-      FIXED
-    */
     advanceValue: numeric("advanceValue", { precision: 10, scale: 2 }),
 
-    /* -------- Rating (System controlled) -------- */
+    /* -------- Rating -------- */
     rating: numeric("rating", { precision: 2, scale: 1 }).default("0.0"),
     ratingCount: integer("ratingCount").default(0),
 
@@ -84,3 +72,4 @@ export const vendorProductsTable = pgTable("vendor_products", {
     createdAt: timestamp("createdAt", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updatedAt", { withTimezone: true }).defaultNow(),
 });
+

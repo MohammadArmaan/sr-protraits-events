@@ -33,10 +33,13 @@ export interface VendorProduct {
 
     occupation: string;
 
-    featuredImageUrl: string
+    featuredImageUrl: string;
+
+    subCategoryName: string | null;   
 
     isSessionBased: boolean;
     maxSessionHours: number;
 
     imagesByCatalog: ImagesByCatalog;
 }
+

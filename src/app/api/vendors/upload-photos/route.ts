@@ -11,6 +11,10 @@ import { vendorCatalogImagesTable } from "@/config/vendorCatalogImagesSchema";
 import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import { randomUUID } from "crypto";
+import { categoriesTable } from "@/config/categoriesSchema";
+import { subCategoriesTable } from "@/config/subCategoriesSchema";
+import { and } from "drizzle-orm";
+
 
 interface OnboardingTokenPayload {
     vendorId: number;
@@ -31,16 +35,24 @@ export async function POST(req: NextRequest) {
         const onboardingToken = formData.get("onboardingToken") as string;
         const catalogTitle = formData.get("catalogTitle") as string;
         const catalogDescription = formData.get("catalogDescription") as string | null;
+        const categoryId = Number(formData.get("categoryId"));
+        const subCategoryId = Number(formData.get("subCategoryId"));
         const files = formData.getAll("files") as File[];
 
-        if (!onboardingToken || !catalogTitle || files.length === 0) {
+        if (
+            !onboardingToken ||
+            !catalogTitle ||
+            !categoryId ||
+            !subCategoryId ||
+            files.length === 0
+        ) {
             return NextResponse.json(
                 { error: "Missing required catalog data." },
                 { status: 400 },
             );
         }
 
-        // Verify token (identity only)
+        // Verify onboarding token
         let decoded: OnboardingTokenPayload;
         try {
             decoded = jwt.verify(
@@ -69,7 +81,6 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // 🔥 STEP CHECK FROM DB
         if (vendor.currentStep !== 3) {
             return NextResponse.json(
                 {
@@ -79,17 +90,48 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // Create catalog
+        /* -------------------- VALIDATE TAXONOMY -------------------- */
+
+        const category = await db.query.categoriesTable.findFirst({
+            where: eq(categoriesTable.id, categoryId),
+        });
+
+        if (!category) {
+            return NextResponse.json(
+                { error: "Invalid category selected." },
+                { status: 400 },
+            );
+        }
+
+        const subCategory = await db.query.subCategoriesTable.findFirst({
+            where: and(
+                eq(subCategoriesTable.id, subCategoryId),
+                eq(subCategoriesTable.categoryId, categoryId),
+            ),
+        });
+
+        if (!subCategory) {
+            return NextResponse.json(
+                { error: "Invalid subcategory for selected category." },
+                { status: 400 },
+            );
+        }
+
+        /* -------------------- CREATE CATALOG -------------------- */
+
         const [catalog] = await db
             .insert(vendorCatalogsTable)
             .values({
                 vendorId,
                 title: catalogTitle.trim(),
                 description: catalogDescription || null,
+                categoryId,
+                subCategoryId,
             })
             .returning();
 
-        // Upload images
+        /* -------------------- UPLOAD IMAGES -------------------- */
+
         for (const file of files) {
             const buffer = Buffer.from(await file.arrayBuffer());
             const key = `vendors/${vendorId}/catalogs/${catalog.id}/${randomUUID()}-${file.name}`;
@@ -111,7 +153,8 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        // Advance step
+        /* -------------------- ADVANCE STEP -------------------- */
+
         await db
             .update(vendorsTable)
             .set({

@@ -6,6 +6,10 @@ import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import crypto from "crypto";
+import { categoriesTable } from "@/config/categoriesSchema";
+import { subCategoriesTable } from "@/config/subCategoriesSchema";
+import { and } from "drizzle-orm";
+
 
 /* -------------------- REQUIRED FOR FILE UPLOAD -------------------- */
 export const runtime = "nodejs";
@@ -118,14 +122,17 @@ const rawCatalogChanges = form.get("catalogChanges")?.toString();
 const catalogEdits: {
     catalogId?: number;
     title?: string;
+    categoryId?: number;
+    subCategoryId?: number;
     removedImages?: string[];
 }[] = rawCatalogChanges ? JSON.parse(rawCatalogChanges) : [];
-
 const uploadedImagesByCatalog = new Map<number | string, string[]>();
+
+/* ------------------ UPLOAD NEW CATALOG IMAGES -------------------- */
 
 for (let i = 0; i < catalogEdits.length; i++) {
     const edit = catalogEdits[i];
-    
+
     let files: File[] = [];
     let catalogKey: string;
 
@@ -134,22 +141,19 @@ for (let i = 0; i < catalogEdits.length; i++) {
         catalogKey = `catalog_${edit.catalogId}`;
         files = form.getAll(`catalog_${edit.catalogId}_images`) as File[];
     } else {
-        // ✅ NEW catalog
+        // New catalog
         catalogKey = `catalog_new_${i}`;
         files = form.getAll(`catalog_new_${i}_images`) as File[];
     }
 
-    console.log(`${catalogKey} files:`, files.map((f) => f.name));
-
     for (const file of files) {
+        if (!(file instanceof File)) continue;
+
         const buffer = Buffer.from(await file.arrayBuffer());
 
-        // ✅ For new catalogs, use temporary key structure
-        const s3Key = edit.catalogId 
+        const s3Key = edit.catalogId
             ? `vendors/${vendorId}/catalogs/${edit.catalogId}/${crypto.randomUUID()}-${file.name}`
             : `vendors/${vendorId}/catalogs/pending/${crypto.randomUUID()}-${file.name}`;
-
-        console.log("Uploading catalog image:", file.name, "to", s3Key);
 
         await s3.send(
             new PutObjectCommand({
@@ -167,6 +171,7 @@ for (let i = 0; i < catalogEdits.length; i++) {
     }
 }
 
+
 /* ------------------ BUILD ACTION-BASED CHANGES -------------------- */
 
 const catalogActions = catalogEdits.map((edit, index) => {
@@ -178,10 +183,13 @@ const catalogActions = catalogEdits.map((edit, index) => {
         action: edit.catalogId ? ("UPDATE" as const) : ("ADD" as const),
         payload: {
             title: edit.title,
+            categoryId: edit.categoryId,
+            subCategoryId: edit.subCategoryId,
             addedImages: uploadedImages?.length ? uploadedImages : undefined,
         },
     };
 });
+
 
         /* ---------------------- STORE EDIT REQUEST ------------------------ */
 

@@ -44,6 +44,8 @@ type EditableCatalog = {
         url: string;
         origin: "existing" | "new";
     }[];
+    categoryId?: number;
+    subCategoryId?: number;
     newFiles: File[];
     removedUrls: string[];
 };
@@ -125,8 +127,12 @@ export default function VendorProfilePage() {
             catalogs.map((c) => ({
                 catalogId: c.id,
                 title: c.title,
+
+                categoryId: c.categoryId ?? undefined,
+                subCategoryId: c.subCategoryId ?? undefined,
+
                 images: c.images.map((img) => ({
-                    id: crypto.randomUUID(), // ✅ stable unique ID
+                    id: crypto.randomUUID(),
                     url: img.imageUrl,
                     origin: "existing" as const,
                 })),
@@ -164,6 +170,8 @@ export default function VendorProfilePage() {
                     catalogEdits.map((c) => ({
                         catalogId: c.catalogId,
                         title: c.title,
+                        categoryId: c.categoryId, // ✅ ADD
+                        subCategoryId: c.subCategoryId, // ✅ ADD
                         removedImages: c.removedUrls,
                     })),
                 ),
@@ -243,6 +251,22 @@ export default function VendorProfilePage() {
 
                     <VendorBusinessPhotos
                         catalogs={catalogEdits}
+                        onCategoryChange={(catalogIndex, categoryId) => {
+                            setCatalogEdits((prev) => {
+                                const copy = [...prev];
+                                copy[catalogIndex].categoryId = categoryId;
+                                copy[catalogIndex].subCategoryId = undefined; // 🔥 reset subcategory
+                                return copy;
+                            });
+                        }}
+                        onSubCategoryChange={(catalogIndex, subCategoryId) => {
+                            setCatalogEdits((prev) => {
+                                const copy = [...prev];
+                                copy[catalogIndex].subCategoryId =
+                                    subCategoryId;
+                                return copy;
+                            });
+                        }}
                         disabled={!isEditing || isSaving}
                         onAddCatalog={() => {
                             setCatalogEdits((prev) => [

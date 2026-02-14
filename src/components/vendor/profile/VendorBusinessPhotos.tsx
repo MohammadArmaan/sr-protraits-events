@@ -6,6 +6,15 @@ import { Input } from "@/components/ui/input";
 import { X, Upload } from "lucide-react";
 import Zoom from "react-medium-image-zoom";
 import "react-medium-image-zoom/dist/styles.css";
+import { useVendorCatalogCategories } from "@/hooks/queries/useVendorCatalogCategories";
+import { useVendorCatalogSubCategories } from "@/hooks/queries/useVendorCatalogSubCategories";
+import {
+    Select,
+    SelectTrigger,
+    SelectValue,
+    SelectContent,
+    SelectItem,
+} from "@/components/ui/select";
 
 export interface ImageItem {
     id: string;
@@ -17,6 +26,8 @@ interface Catalog {
     catalogId?: number;
     title: string;
     images: ImageItem[];
+    categoryId?: number; // ✅ ADD
+    subCategoryId?: number; // ✅ ADD
 }
 
 interface Props {
@@ -30,6 +41,9 @@ interface Props {
     onRemoveImage: (catalogIndex: number, image: ImageItem) => void;
 
     onTitleChange: (catalogIndex: number, title: string) => void;
+
+    onCategoryChange: (catalogIndex: number, categoryId: number) => void;
+    onSubCategoryChange: (catalogIndex: number, subCategoryId: number) => void;
 }
 
 export default function VendorBusinessPhotos({
@@ -40,7 +54,10 @@ export default function VendorBusinessPhotos({
     onAddImages,
     onRemoveImage,
     onTitleChange,
+    onCategoryChange,
+    onSubCategoryChange,
 }: Props) {
+    const { data: categories = [] } = useVendorCatalogCategories();
     return (
         <div className="space-y-10">
             <div className="flex justify-between items-center">
@@ -59,6 +76,37 @@ export default function VendorBusinessPhotos({
                     key={catalog.catalogId ?? `new-${catalogIdx}`}
                     className="border rounded-2xl p-6 space-y-4"
                 >
+                    {/* CATEGORY SELECT */}
+                    <Select
+                        value={catalog.categoryId?.toString()}
+                        disabled={disabled}
+                        onValueChange={(value) =>
+                            onCategoryChange(catalogIdx, Number(value))
+                        }
+                    >
+                        <SelectTrigger className="w-full rounded-xl">
+                            <SelectValue placeholder="Select Category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {categories.map((cat) => (
+                                <SelectItem
+                                    key={cat.id}
+                                    value={cat.id.toString()}
+                                >
+                                    {cat.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+
+                    {/* SUBCATEGORY SELECT */}
+                    <SubCategorySelect
+                        catalog={catalog}
+                        catalogIdx={catalogIdx}
+                        disabled={disabled}
+                        onSubCategoryChange={onSubCategoryChange}
+                    />
+
                     {/* Catalog Header */}
                     <div className="flex gap-4 items-center">
                         <Input
@@ -121,7 +169,9 @@ export default function VendorBusinessPhotos({
                                 accept="image/*"
                                 hidden
                                 onChange={(e) => {
-                                    const files = Array.from(e.target.files || []);
+                                    const files = Array.from(
+                                        e.target.files || [],
+                                    );
                                     onAddImages(catalogIdx, files);
                                     // Reset input to allow re-uploading the same file
                                     e.target.value = "";
@@ -132,5 +182,42 @@ export default function VendorBusinessPhotos({
                 </div>
             ))}
         </div>
+    );
+}
+
+function SubCategorySelect({
+    catalog,
+    catalogIdx,
+    disabled,
+    onSubCategoryChange,
+}: {
+    catalog: Catalog;
+    catalogIdx: number;
+    disabled: boolean;
+    onSubCategoryChange: (index: number, subCategoryId: number) => void;
+}) {
+    const { data: subCategories = [] } = useVendorCatalogSubCategories(
+        catalog.categoryId,
+    );
+
+    return (
+        <Select
+            value={catalog.subCategoryId?.toString()}
+            disabled={disabled || !catalog.categoryId}
+            onValueChange={(value) =>
+                onSubCategoryChange(catalogIdx, Number(value))
+            }
+        >
+            <SelectTrigger className="w-full rounded-xl">
+                <SelectValue placeholder="Select Subcategory" />
+            </SelectTrigger>
+            <SelectContent>
+                {subCategories.map((sub) => (
+                    <SelectItem key={sub.id} value={sub.id.toString()}>
+                        {sub.name}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
     );
 }

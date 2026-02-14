@@ -8,8 +8,8 @@ export default function Page() {
         <div>
             <VendorHeroSlider />
             <HighestPointsSticker />
-            <VendorFeaturedProducts />
             <VendorBrowseByCategory />
+            <VendorFeaturedProducts />
         </div>
     );
 }

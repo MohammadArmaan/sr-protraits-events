@@ -1,0 +1,17 @@
+// useShopSubCategories.ts
+import { useQuery } from "@tanstack/react-query";
+import axios from "axios";
+
+export function useShopSubCategories(categoryId?: string) {
+  return useQuery({
+    queryKey: ["shop-subcategories", categoryId],
+    queryFn: async () => {
+      const res = await axios.get(
+        `/api/admin/vendor-sub-categories?categoryId=${categoryId}`
+      );
+      return res.data;
+    },
+    enabled: !!categoryId,
+    staleTime: 5 * 60 * 1000,
+  });
+}

@@ -20,7 +20,7 @@ interface VendorProductCardProps {
     rating: number;
     ratingCount: number;
 
-    occupation: string;
+    occupation?: string | null;
 
     featuredImage: string;
 }

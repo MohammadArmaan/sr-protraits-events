@@ -5,6 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { X, Upload } from "lucide-react";
+import {
+    Select,
+    SelectTrigger,
+    SelectValue,
+    SelectContent,
+    SelectItem,
+} from "@/components/ui/select";
+
+import { useVendorCatalogCategories } from "@/hooks/queries/useVendorCatalogCategories";
+import { useVendorCatalogSubCategories } from "@/hooks/queries/useVendorCatalogSubCategories";
 
 type Props = {
     files: File[];
@@ -12,9 +22,12 @@ type Props = {
     setFiles: React.Dispatch<React.SetStateAction<File[]>>;
     setPreviews: React.Dispatch<React.SetStateAction<string[]>>;
 
-    // 🔥 NEW
     catalogTitle: string;
     setCatalogTitle: (value: string) => void;
+    categoryId?: number;
+    subCategoryId?: number;
+    setCategoryId: (id: number) => void;
+    setSubCategoryId: (id: number) => void;
 };
 
 export default function UploadPhotos({
@@ -24,9 +37,16 @@ export default function UploadPhotos({
     setPreviews,
     catalogTitle,
     setCatalogTitle,
+    categoryId,
+    setCategoryId,
+    subCategoryId,
+    setSubCategoryId,
 }: Props) {
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [isDragging, setIsDragging] = useState(false);
+    const { data: categories = [] } = useVendorCatalogCategories();
+    const { data: subCategories = [] } =
+        useVendorCatalogSubCategories(categoryId);
 
     function handleFiles(selected: File[]) {
         selected.forEach((file) => {
@@ -42,6 +62,55 @@ export default function UploadPhotos({
 
     return (
         <div className="space-y-6">
+            {/* CATEGORY */}
+            <div>
+                <Label>
+                    Category <span className="text-destructive">*</span>
+                </Label>
+
+                <Select
+                    value={categoryId?.toString()}
+                    onValueChange={(value) => {
+                        setCategoryId(Number(value));
+                        setSubCategoryId(undefined as any); // reset subcategory
+                    }}
+                >
+                    <SelectTrigger className="rounded-xl bg-muted border-border w-full">
+                        <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id.toString()}>
+                                {cat.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+
+            {/* SUBCATEGORY */}
+            <div>
+                <Label>
+                    Subcategory <span className="text-destructive">*</span>
+                </Label>
+
+                <Select
+                    value={subCategoryId?.toString()}
+                    disabled={!categoryId}
+                    onValueChange={(value) => setSubCategoryId(Number(value))}
+                >
+                    <SelectTrigger className="rounded-xl bg-muted border-border w-full">
+                        <SelectValue placeholder="Select subcategory" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {subCategories.map((sub) => (
+                            <SelectItem key={sub.id} value={sub.id.toString()}>
+                                {sub.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
 
             {/* CATALOG TITLE */}
             <div>

@@ -62,4 +62,6 @@ export type VendorBusinessDescription = {
 export type VendorPhotosPayload = {
     photos: File[];
     catalogTitle: string;
+    categoryId: number;
+    subCategoryId: number;
 };

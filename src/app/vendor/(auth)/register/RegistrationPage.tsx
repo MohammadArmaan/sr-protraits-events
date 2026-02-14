@@ -60,6 +60,8 @@ export default function RegistrationPage() {
         profilePhoto: null as File | null,
         photos: [] as string[],
         catalogTitle: "",
+        categoryId: undefined as number | undefined,
+        subCategoryId: undefined as number | undefined,
         verified: false,
         hasAcceptedTerms: false,
         termsAcceptedAt: null as Date | null,
@@ -206,11 +208,24 @@ export default function RegistrationPage() {
                 }
                 if (!formData.catalogTitle.trim()) {
                     toast.error("Catalog title is required");
-                    return false;
+                    return;
                 }
+
+                if (!formData.categoryId) {
+                    toast.error("Please select a category");
+                    return;
+                }
+
+                if (!formData.subCategoryId) {
+                    toast.error("Please select a subcategory");
+                    return;
+                }
+
                 await submitPhotos({
                     photos: photoFiles,
                     catalogTitle: formData.catalogTitle,
+                    categoryId: formData.categoryId!,
+                    subCategoryId: formData.subCategoryId!,
                 });
                 toast.success("Photos uploaded!");
                 setCurrentStep(5);
@@ -302,6 +317,21 @@ export default function RegistrationPage() {
                                     setFormData((prev) => ({
                                         ...prev,
                                         catalogTitle: value,
+                                    }))
+                                }
+                                categoryId={formData.categoryId}
+                                subCategoryId={formData.subCategoryId}
+                                setCategoryId={(id) =>
+                                    setFormData((prev) => ({
+                                        ...prev,
+                                        categoryId: id,
+                                        subCategoryId: undefined, // reset
+                                    }))
+                                }
+                                setSubCategoryId={(id) =>
+                                    setFormData((prev) => ({
+                                        ...prev,
+                                        subCategoryId: id,
                                     }))
                                 }
                             />

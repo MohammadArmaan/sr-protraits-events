@@ -174,6 +174,22 @@ export function AdminSidebar() {
                                             </Link>
                                         </SidebarMenuSubButton>
                                     </SidebarMenuSubItem>
+
+                                    <SidebarMenuSubItem>
+                                        <SidebarMenuSubButton
+                                            asChild
+                                            className={clsx(
+                                                isSectionActive(
+                                                    "/admin/vendor-categories",
+                                                ) &&
+                                                    "bg-gradient-primary text-primary-foreground",
+                                            )}
+                                        >
+                                            <Link href="/admin/vendor-categories">
+                                                Vendor Categories
+                                            </Link>
+                                        </SidebarMenuSubButton>
+                                    </SidebarMenuSubItem>
                                 </SidebarMenuSub>
                             </CollapsibleContent>
                         </SidebarMenuItem>

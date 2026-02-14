@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/config/db";
 import { vendorProductsTable } from "@/config/vendorProductsSchema";
 import { vendorsTable } from "@/config/vendorsSchema";
+import { vendorCatalogImagesTable } from "@/config/vendorCatalogImagesSchema";
 import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
-import { SQL } from "drizzle-orm";
 import { PAGE_LIMIT } from "@/lib/constants";
-
-type SortOption = SQL;
+import { vendorCatalogsTable } from "@/config/vendorCatalogSchema";
 
 export async function GET(req: NextRequest) {
     try {
@@ -19,12 +18,12 @@ export async function GET(req: NextRequest) {
 
         /* ------------------ FILTERS ------------------ */
         const q = searchParams.get("q")?.trim();
-        const category = searchParams.get("category");
+        const categoryId = searchParams.get("categoryId");
+        const subCategoryId = searchParams.get("subCategoryId");
         const minPrice = searchParams.get("minPrice");
         const maxPrice = searchParams.get("maxPrice");
-        const sort = searchParams.get("sort") ?? "newest";
 
-        /* ------------------ WHERE CONDITIONS ------------------ */
+        /* ------------------ CONDITIONS ------------------ */
         const conditions = [
             eq(vendorProductsTable.isActive, true),
             eq(vendorsTable.isApproved, true),
@@ -36,102 +35,169 @@ export async function GET(req: NextRequest) {
           ${vendorProductsTable.title} ILIKE ${"%" + q + "%"}
           OR ${vendorProductsTable.description} ILIKE ${"%" + q + "%"}
           OR ${vendorProductsTable.businessName} ILIKE ${"%" + q + "%"}
-        )`
+        )`,
             );
         }
 
-        if (category) {
-            conditions.push(eq(vendorProductsTable.occupation, category));
+        if (subCategoryId) {
+            conditions.push(
+                sql`EXISTS (
+      SELECT 1
+      FROM vendor_catalogs vc
+      WHERE vc."vendorId" = ${vendorProductsTable.vendorId}
+      AND vc."subCategoryId" = ${Number(subCategoryId)}
+    )`,
+            );
+        }
+
+        if (categoryId && !subCategoryId) {
+            conditions.push(
+                sql`EXISTS (
+      SELECT 1
+      FROM vendor_catalogs vc
+      JOIN sub_categories sc ON sc."id" = vc."subCategoryId"
+      WHERE vc."vendorId" = ${vendorProductsTable.vendorId}
+      AND sc."categoryId" = ${Number(categoryId)}
+    )`,
+            );
         }
 
         if (minPrice) {
-            conditions.push(gte(vendorProductsTable.basePriceSingleDay, minPrice));
+            conditions.push(
+                gte(vendorProductsTable.basePriceSingleDay, minPrice),
+            );
         }
 
         if (maxPrice) {
-            conditions.push(lte(vendorProductsTable.basePriceSingleDay, maxPrice));
+            conditions.push(
+                lte(vendorProductsTable.basePriceSingleDay, maxPrice),
+            );
         }
 
-        /* ------------------ SORT ------------------ */
-        const SORT_MAP: Record<string, SortOption> = {
-            price_asc: asc(vendorProductsTable.basePriceSingleDay),
-            price_desc: desc(vendorProductsTable.basePriceSingleDay),
-            rating_desc: desc(vendorProductsTable.rating),
-            newest: desc(vendorProductsTable.createdAt),
-        };
+        /* ------------------ QUERY ------------------ */
 
-        const orderBy = SORT_MAP[sort] ?? SORT_MAP.newest;
-
-        /* ------------------ DATA QUERY ------------------ */
         const products = await db
             .select({
                 id: vendorProductsTable.id,
                 uuid: vendorProductsTable.uuid,
+                vendorId: vendorProductsTable.vendorId,
+
                 title: vendorProductsTable.title,
                 description: vendorProductsTable.description,
+
                 basePriceSingleDay: vendorProductsTable.basePriceSingleDay,
                 basePriceMultiDay: vendorProductsTable.basePriceMultiDay,
+
                 advanceType: vendorProductsTable.advanceType,
                 advanceValue: vendorProductsTable.advanceValue,
+
                 rating: vendorProductsTable.rating,
                 ratingCount: vendorProductsTable.ratingCount,
-                businessName: vendorProductsTable.businessName,
+
                 occupation: vendorProductsTable.occupation,
-                images: vendorProductsTable.images,
-                featuredImageIndex: vendorProductsTable.featuredImageIndex,
+
+                featuredImageUrl: vendorProductsTable.featuredImageUrl,
+
+                isSessionBased: vendorProductsTable.isSessionBased,
+                maxSessionHours: vendorProductsTable.maxSessionHours,
+
+                isPriority: vendorProductsTable.isPriority,
+                vendorPoints: vendorsTable.points,
+
+                subCategoryName: sql<string | null>`
+            (
+                SELECT sc."name"
+                FROM vendor_catalogs vc
+                JOIN sub_categories sc 
+                  ON sc."id" = vc."subCategoryId"
+                WHERE vc."vendorId" = ${vendorProductsTable.vendorId}
+                LIMIT 1
+            )
+        `,
             })
             .from(vendorProductsTable)
             .innerJoin(
                 vendorsTable,
-                eq(vendorProductsTable.vendorId, vendorsTable.id)
+                eq(vendorProductsTable.vendorId, vendorsTable.id),
             )
             .where(and(...conditions))
-            .orderBy(orderBy)
+            .orderBy(
+                desc(vendorProductsTable.isPriority),
+                desc(vendorsTable.points),
+                desc(vendorProductsTable.rating),
+            )
             .limit(limit)
             .offset(offset);
 
-        /* ------------------ COUNT QUERY ------------------ */
+        /* ------------------ IMAGE OVERRIDE LOGIC ------------------ */
+
+        let finalProducts = products;
+
+        // If subcategory search → override image using catalog
+        if (subCategoryId) {
+            const catalogs = await db
+                .select({
+                    vendorId: vendorCatalogsTable.vendorId,
+                    imageUrl: vendorCatalogImagesTable.imageUrl,
+                })
+                .from(vendorCatalogsTable)
+                .innerJoin(
+                    vendorCatalogImagesTable,
+                    eq(
+                        vendorCatalogImagesTable.catalogId,
+                        vendorCatalogsTable.id,
+                    ),
+                )
+                .where(
+                    and(
+                        eq(
+                            vendorCatalogsTable.subCategoryId,
+                            Number(subCategoryId),
+                        ),
+                        eq(vendorCatalogImagesTable.sortOrder, 0),
+                    ),
+                );
+
+            const catalogMap = new Map<number, string>();
+
+            catalogs.forEach((c) => {
+                if (!catalogMap.has(c.vendorId)) {
+                    catalogMap.set(c.vendorId, c.imageUrl);
+                }
+            });
+
+            finalProducts = products.map((p) => {
+                const overrideImage = catalogMap.get(p.vendorId);
+
+                if (overrideImage) {
+                    return {
+                        ...p,
+                        featuredImageUrl: overrideImage,
+                    };
+                }
+
+                return p;
+            });
+        }
+
+        /* ------------------ COUNT ------------------ */
+
         const [{ count }] = await db
             .select({ count: sql<number>`count(*)` })
             .from(vendorProductsTable)
             .innerJoin(
                 vendorsTable,
-                eq(vendorProductsTable.vendorId, vendorsTable.id)
+                eq(vendorProductsTable.vendorId, vendorsTable.id),
             )
             .where(and(...conditions));
 
         const total = Number(count);
         const totalPages = Math.ceil(total / limit);
 
+        /* ------------------ RESPONSE ------------------ */
+
         return NextResponse.json({
-            products: products.map((p) => {
-                const images = Array.isArray(p.images) ? p.images : [];
-
-                return {
-                    id: p.id,
-                    uuid: p.uuid,
-                    title: p.title,
-                    description: p.description ?? null,
-
-                    basePriceSingleDay: p.basePriceSingleDay,
-                    basePriceMultiDay: p.basePriceMultiDay,
-                    advanceType: p.advanceType,
-                    advanceValue: p.advanceValue,
-
-                    rating: p.rating,
-                    ratingCount: p.ratingCount,
-
-                    businessName: p.businessName,
-                    occupation: p.occupation,
-
-                    // 👇 MATCH FEATURED API
-                    images,
-                    featuredImageIndex:
-                        typeof p.featuredImageIndex === "number"
-                            ? p.featuredImageIndex
-                            : 0,
-                };
-            }),
+            products: finalProducts,
             meta: {
                 page,
                 limit,
@@ -145,7 +211,7 @@ export async function GET(req: NextRequest) {
         console.error("Shop Products Error:", error);
         return NextResponse.json(
             { error: "Internal server error" },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }
