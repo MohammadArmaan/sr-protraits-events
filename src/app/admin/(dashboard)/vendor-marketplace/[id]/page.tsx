@@ -172,9 +172,9 @@ export default function VendorMarketplaceDetailsPage() {
                                 </div>
 
                                 <div className="space-y-8">
-                                    {Object.entries(
-                                        imagesByCatalog as VendorProductImagesByCatalog,
-                                    ).map(([catalogId, group]) => (
+                                    {Object.entries(imagesByCatalog).map(
+  ([catalogId, group]: [string, VendorProductImagesByCatalog[number]]) => (
+
                                         <div key={catalogId}>
                                             <div className="flex items-center gap-3 mb-4">
                                                 <Package className="h-5 w-5 text-primary" />

@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
         if (expectedSignature !== razorpay_signature) {
             return NextResponse.json(
                 { error: "Invalid signature" },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
         if (!payment) {
             return NextResponse.json(
                 { error: "Payment not found" },
-                { status: 404 }
+                { status: 404 },
             );
         }
 
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
         if (!booking) {
             return NextResponse.json(
                 { error: "Booking not found" },
-                { status: 404 }
+                { status: 404 },
             );
         }
 
@@ -117,7 +117,6 @@ export async function POST(req: NextRequest) {
                 advanceAmount,
                 remainingAmount,
 
-
                 requester: {
                     name: requester.fullName,
                     email: requester.email,
@@ -132,11 +131,11 @@ export async function POST(req: NextRequest) {
             await sendEmail({
                 to: requester.email,
                 subject: "Invoice & Booking Confirmed 🧾",
-                html: bookingConfirmedRequesterTemplate(
-                    requester.fullName,
-                    provider.fullName,
-                    booking.uuid
-                ),
+                html: bookingConfirmedRequesterTemplate({
+                    bookingUuid: booking.uuid,
+                    requesterName: requester.fullName,
+                    providerName: provider.fullName,
+                }),
                 attachments: [
                     {
                         filename: `Invoice-${booking.uuid}.pdf`,
@@ -152,14 +151,11 @@ export async function POST(req: NextRequest) {
                 subject: "New Booking Confirmed 📅",
                 html: bookingConfirmedProviderTemplate(
                     provider.fullName,
-                    requester.fullName
+                    requester.fullName,
                 ),
             });
         } catch (invoiceError) {
-            console.error(
-                "Invoice/Email error (non-blocking):",
-                invoiceError
-            );
+            console.error("Invoice/Email error (non-blocking):", invoiceError);
         }
 
         return NextResponse.json({ success: true });
@@ -167,7 +163,7 @@ export async function POST(req: NextRequest) {
         console.error("Verify payment error:", err);
         return NextResponse.json(
             { error: "Payment verification failed" },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }

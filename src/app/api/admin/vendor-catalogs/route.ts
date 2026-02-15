@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
         if (!vendorIdParam || Number.isNaN(vendorId) || vendorId <= 0) {
             return NextResponse.json(
                 { error: "Invalid vendorId" },
-                { status: 400 }
+                { status: 400 },
             );
         }
 
@@ -35,20 +35,17 @@ export async function GET(req: NextRequest) {
         if (!token) {
             return NextResponse.json(
                 { error: "Unauthorized" },
-                { status: 401 }
+                { status: 401 },
             );
         }
 
         const decoded = jwt.verify(
             token,
-            process.env.JWT_SECRET!
+            process.env.JWT_SECRET!,
         ) as AdminTokenPayload;
 
         if (!["admin", "superadmin"].includes(decoded.role)) {
-            return NextResponse.json(
-                { error: "Forbidden" },
-                { status: 403 }
-            );
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         /* ------------------------------------------------------------------ */
@@ -62,7 +59,7 @@ export async function GET(req: NextRequest) {
         if (!vendor) {
             return NextResponse.json(
                 { error: "Vendor not found" },
-                { status: 404 }
+                { status: 404 },
             );
         }
 
@@ -89,7 +86,7 @@ export async function GET(req: NextRequest) {
                     success: true,
                     catalogs: [],
                 },
-                { status: 200 }
+                { status: 200 },
             );
         }
 
@@ -106,12 +103,7 @@ export async function GET(req: NextRequest) {
                 sortOrder: vendorCatalogImagesTable.sortOrder,
             })
             .from(vendorCatalogImagesTable)
-            .where(
-                inArray(
-                    vendorCatalogImagesTable.catalogId,
-                    catalogIds
-                )
-            );
+            .where(inArray(vendorCatalogImagesTable.catalogId, catalogIds));
 
         /* ------------------------------------------------------------------ */
         /*                     GROUP IMAGES BY CATALOG                         */
@@ -126,12 +118,20 @@ export async function GET(req: NextRequest) {
         const imagesByCatalogId = new Map<number, CatalogImage[]>();
 
         images
-            .sort((a, b) => a.sortOrder - b.sortOrder)
+            .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
             .forEach((img) => {
+                const normalizedImage: CatalogImage = {
+                    id: img.id,
+                    catalogId: img.catalogId,
+                    imageUrl: img.imageUrl,
+                    sortOrder: img.sortOrder ?? 0, // 👈 normalize here
+                };
+
                 if (!imagesByCatalogId.has(img.catalogId)) {
                     imagesByCatalogId.set(img.catalogId, []);
                 }
-                imagesByCatalogId.get(img.catalogId)!.push(img);
+
+                imagesByCatalogId.get(img.catalogId)!.push(normalizedImage);
             });
 
         /* ------------------------------------------------------------------ */
@@ -155,13 +155,13 @@ export async function GET(req: NextRequest) {
                 headers: {
                     "Cache-Control": "private, max-age=60",
                 },
-            }
+            },
         );
     } catch (error) {
         console.error("Admin Fetch Vendor Catalogs Error:", error);
         return NextResponse.json(
             { error: "Failed to fetch vendor catalogs" },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }

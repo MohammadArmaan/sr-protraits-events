@@ -15,7 +15,7 @@ export const vendorCatalogsTable = pgTable(
     {
         id: integer().primaryKey().generatedAlwaysAsIdentity(),
 
-        vendorId: integer()
+        vendorId: integer("vendorId")
             .notNull()
             .references(() => vendorsTable.id, { onDelete: "cascade" }),
 

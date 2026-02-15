@@ -2,8 +2,16 @@
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 
+interface ShopSubCategory {
+    id: number;
+    name: string;
+    slug: string;
+    categoryId: number;
+}
+
+
 export function useShopSubCategories(categoryId?: string) {
-  return useQuery({
+  return useQuery<ShopSubCategory[]>({
     queryKey: ["shop-subcategories", categoryId],
     queryFn: async () => {
       const res = await axios.get(

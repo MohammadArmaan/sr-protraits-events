@@ -19,7 +19,7 @@ import { useVendor } from "@/hooks/queries/useVendor";
 
 export function VendorNavbar() {
     const { data } = useVendor();
-    const vendorId = data?.id;
+    const vendorId = data?.vendor.id;
     const [searchQuery, setSearchQuery] = useState("");
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const router = useRouter();

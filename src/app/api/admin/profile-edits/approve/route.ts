@@ -31,7 +31,10 @@ export async function POST(req: NextRequest) {
 
         const token = req.cookies.get("admin_token")?.value;
         if (!token)
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            return NextResponse.json(
+                { error: "Unauthorized" },
+                { status: 401 },
+            );
 
         const decoded = jwt.verify(
             token,
@@ -120,9 +123,10 @@ export async function POST(req: NextRequest) {
                             vendorId: vendor.id,
                             title: payload.title!,
                             description: payload.description ?? null,
-                            categoryId: payload.categoryId ?? null,
-                            subCategoryId: payload.subCategoryId ?? null,
-                        })
+                            categoryId: payload.categoryId!,
+                            subCategoryId: payload.subCategoryId!,
+                        } satisfies typeof vendorCatalogsTable.$inferInsert)
+
                         .returning();
 
                     if (payload.addedImages?.length) {
@@ -173,10 +177,7 @@ export async function POST(req: NextRequest) {
                     await db
                         .delete(vendorCatalogImagesTable)
                         .where(
-                            eq(
-                                vendorCatalogImagesTable.catalogId,
-                                catalogId,
-                            ),
+                            eq(vendorCatalogImagesTable.catalogId, catalogId),
                         );
 
                     await db

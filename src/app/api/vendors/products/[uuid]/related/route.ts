@@ -45,6 +45,7 @@ export async function GET(
         ratingCount: vendorProductsTable.ratingCount,
 
         occupation: vendorProductsTable.occupation,
+        businessName: vendorProductsTable.businessName,
 
         featuredImageUrl: vendorProductsTable.featuredImageUrl,
         isSessionBased: vendorProductsTable.isSessionBased,

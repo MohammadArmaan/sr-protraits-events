@@ -96,6 +96,7 @@ export async function POST(
         const [requester] = await db
             .select({
                 businessName: vendorsTable.businessName,
+                fullName: vendorsTable.fullName,
                 email: vendorsTable.email,
             })
             .from(vendorsTable)
@@ -152,7 +153,7 @@ export async function POST(
                 to: requester.email,
                 subject: "Booking Approved – Pay Advance 💳",
                 html: bookingApprovedVendorTemplate(
-                    requester.businessName,
+                    requester.fullName,
                     product.title,
                     booking.uuid,
                     advanceAmount, // ✅ advance
@@ -167,7 +168,7 @@ export async function POST(
                 to: requester.email,
                 subject: "Booking Request Rejected",
                 html: bookingRejectedVendorTemplate(
-                    requester.businessName,
+                    requester.fullName,
                     product.title
                 ),
             });

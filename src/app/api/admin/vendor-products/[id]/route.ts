@@ -18,7 +18,7 @@ interface AdminTokenPayload {
 
 export async function GET(
     req: NextRequest,
-    context: { params: { id: string } },
+    context: { params: Promise<{ id: string }> },
 ) {
     try {
         /* ---------------- AUTH ---------------- */
@@ -133,7 +133,7 @@ export async function GET(
 
 export async function PUT(
     req: NextRequest,
-    context: { params: { id: string } },
+    context: { params: Promise<{ id: string }> },
 ) {
     try {
         /* ---------------- ID ---------------- */
@@ -305,7 +305,7 @@ export async function PUT(
 
 export async function DELETE(
     req: NextRequest,
-    context: { params: { id: string } },
+    context: { params: Promise<{ id: string }> },
 ) {
     try {
         /* ---------------- ID ---------------- */

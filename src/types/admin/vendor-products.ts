@@ -61,15 +61,15 @@ export interface AdminVendorProduct {
 
 export interface CreateVendorProductPayload {
     vendorId: number;
+
     catalogIds: number[];
+
     featuredImageByCatalog: Record<number, number>;
 
     title: string;
     description?: string;
 
     isSessionBased: boolean;
-
-    featuredImageUrl: string | null;
 
     basePriceSingleDay: number;
     basePriceMultiDay: number;
@@ -99,4 +99,14 @@ export interface VendorProductResponse {
     product: AdminVendorProduct;
     imagesByCatalog: VendorProductImagesByCatalog;
     catalogIds: number[];
+}
+
+export interface VendorProductListParams {
+    page?: number;
+    limit?: number;
+    search?: string;
+    vendorId?: number;
+    isActive?: boolean;
+    isFeatured?: boolean;
+    isPriority?: boolean;
 }

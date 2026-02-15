@@ -74,7 +74,7 @@ export default function ProductReviews({
         data?.pages.flatMap((p) => p.reviews) ?? [];
 
     const hasAlreadyReviewed = reviews.some(
-        (r) => r.reviewerId === me?.id
+        (r) => r.reviewerId === me?.vendor.id
     );
 
     const handleSubmit = () => {
@@ -206,7 +206,7 @@ export default function ProductReviews({
 
             <div className="space-y-4">
                 {reviews.map((review) => {
-                    const isMine = review.reviewerId === me?.id;
+                    const isMine = review.reviewerId === me?.vendor.id;
 
                     return (
                         <Card

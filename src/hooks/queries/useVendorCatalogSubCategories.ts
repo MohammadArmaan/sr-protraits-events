@@ -26,7 +26,7 @@ async function fetchVendorCatalogSubCategories(
 }
 
 export function useVendorCatalogSubCategories(categoryId?: number) {
-    return useQuery({
+    return useQuery<VendorSubCategory[]>({
         queryKey: ["admin-subcategories", categoryId ?? "all"],
         queryFn: async () => {
             const url = categoryId

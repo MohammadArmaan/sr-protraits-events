@@ -1,8 +1,14 @@
-export function bookingConfirmedRequesterTemplate(
-  requesterName?: string | null,
-  providerName?: string | null,
-  bookingUuid: string
-) {
+interface BookingConfirmedRequesterTemplateProps {
+  bookingUuid: string;
+  requesterName?: string | null;
+  providerName?: string | null;
+}
+
+export function bookingConfirmedRequesterTemplate({
+  bookingUuid,
+  requesterName,
+  providerName,
+}: BookingConfirmedRequesterTemplateProps) {
   const gradientPrimary =
     "linear-gradient(135deg, hsl(220, 80%, 55%), hsl(180, 70%, 50%))";
 

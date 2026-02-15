@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 // GET /api/admin/vendor-products/[id]/details
 export async function GET(
     req: NextRequest,
-    context: { params: { id: string } },
+    context: { params: Promise<{ id: string }> },
 ) {
     await requireAdmin(req);
 
