@@ -115,6 +115,27 @@ export function CompletedClient({ uuid }: Props) {
                                 </span>
                             </div>
 
+                            <div className="flex justify-between border-b pb-3">
+                                <span className="text-muted-foreground">
+                                    Event Location
+                                </span>
+                                <span className="font-medium">
+                                    {booking.eventLocation}
+                                </span>
+                            </div>
+
+                            <div className="mt-2 rounded-xl overflow-hidden border">
+                                <iframe
+                                    width="100%"
+                                    height="200"
+                                    loading="lazy"
+                                    allowFullScreen
+                                    src={`https://www.google.com/maps?q=${encodeURIComponent(
+                                        booking.eventLocation,
+                                    )}&output=embed`}
+                                />
+                            </div>
+
                             {booking.startTime && booking.endTime && (
                                 <div className="flex justify-between border-b pb-3">
                                     <span className="flex items-center gap-2 text-muted-foreground">

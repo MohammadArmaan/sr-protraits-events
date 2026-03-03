@@ -68,6 +68,7 @@ export const VendorBookingForm = ({
     const [sessionHours, setSessionHours] = useState<string>("");
 
     const [notes, setNotes] = useState("");
+    const [eventLocation, setEventLocation] = useState("");
     const [couponInput, setCouponInput] = useState("");
     const [couponPreview, setCouponPreview] =
         useState<ValidateCouponResponse | null>(null);
@@ -190,6 +191,11 @@ export const VendorBookingForm = ({
             return;
         }
 
+        if (!eventLocation.trim() || eventLocation.trim().length < 5) {
+            toast.error("Please enter valid event location");
+            return;
+        }
+
         if (isSessionBased) {
             if (!startTime || !sessionHours) {
                 toast.error("Select start time and session duration");
@@ -206,6 +212,7 @@ export const VendorBookingForm = ({
                 sessionHours: isSessionBased ? Number(sessionHours) : undefined,
                 couponCode: couponPreview?.code,
                 notes: notes || undefined,
+                eventLocation: eventLocation.trim(),
             },
             {
                 onSuccess: (data) => {
@@ -336,6 +343,25 @@ export const VendorBookingForm = ({
                     </Card>
                 )}
 
+                {/* Event Location */}
+                <div className="space-y-2">
+                    <Label>Event Location</Label>
+
+                    <Input
+                        placeholder="Enter full event address"
+                        value={eventLocation}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            setEventLocation(e.target.value)
+                        }
+                        maxLength={255}
+                        autoComplete="street-address"
+                    />
+
+                    <p className="text-xs text-muted-foreground">
+                        Enter full address so vendor can reach easily
+                    </p>
+                </div>
+
                 {/* Coupon */}
                 <div className="space-y-2">
                     <Label className="flex items-center gap-2">
@@ -424,7 +450,8 @@ export const VendorBookingForm = ({
                     disabled={
                         createBooking.isPending ||
                         isSelfBooking ||
-                        isAlreadyBookedByMe
+                        isAlreadyBookedByMe ||
+                        !eventLocation.trim()
                     }
                     className="w-full bg-gradient-primary rounded-pill"
                 >

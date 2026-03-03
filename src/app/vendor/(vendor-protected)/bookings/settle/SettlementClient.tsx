@@ -83,30 +83,25 @@ export function SettlementClient({ uuid }: Props) {
                         order_id: orderId,
                         name: booking.vendor.businessName,
                         description: `Remaining payment – ${booking.product.title}`,
-                        handler: (
-                            response: RazorpaySuccessResponse
-                        ) => {
+                        handler: (response: RazorpaySuccessResponse) => {
                             verifyPayment.mutate(response, {
                                 onSuccess: async () => {
                                     toast.success(
-                                        "Remaining payment completed 🎉"
+                                        "Remaining payment completed 🎉",
                                     );
 
                                     await queryClient.invalidateQueries({
-                                        queryKey: [
-                                            "booking-decision",
-                                            uuid,
-                                        ],
+                                        queryKey: ["booking-decision", uuid],
                                     });
 
                                     router.replace(
-                                        `/vendor/bookings/completed/${uuid}`
+                                        `/vendor/bookings/completed/${uuid}`,
                                     );
                                 },
                                 onError: (err) => {
                                     toast.error(
                                         err.response?.data?.error ??
-                                            "Payment verification failed"
+                                            "Payment verification failed",
                                     );
                                 },
                             });
@@ -121,11 +116,10 @@ export function SettlementClient({ uuid }: Props) {
                 },
                 onError: (err) => {
                     toast.error(
-                       getApiErrorMessage(err) ??
-                            "Unable to initiate payment"
+                        getApiErrorMessage(err) ?? "Unable to initiate payment",
                     );
                 },
-            }
+            },
         );
     };
 
@@ -141,12 +135,29 @@ export function SettlementClient({ uuid }: Props) {
                         <div className="text-sm space-y-2">
                             <p>
                                 <strong>Vendor:</strong>{" "}
-                                {booking.vendor.businessName}
+                                {booking.vendor?.businessName ||
+                                    booking.vendor.fullName}
                             </p>
                             <p>
                                 <strong>Service:</strong>{" "}
                                 {booking.product.title}
                             </p>
+                            <p>
+                                <strong>Event Location:</strong>{" "}
+                                {booking.eventLocation}
+                            </p>
+
+                            <div className="mt-2 rounded-xl overflow-hidden border">
+                                <iframe
+                                    width="100%"
+                                    height="200"
+                                    loading="lazy"
+                                    allowFullScreen
+                                    src={`https://www.google.com/maps?q=${encodeURIComponent(
+                                        booking.eventLocation,
+                                    )}&output=embed`}
+                                />
+                            </div>
 
                             <div className="border-t pt-3">
                                 <p className="font-semibold text-destructive">

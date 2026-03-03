@@ -47,6 +47,7 @@ export interface CreateBookingRequest {
 
     couponCode?: string;
     notes?: string;
+    eventLocation?: string;
 }
 
 
@@ -98,6 +99,7 @@ export interface VendorBooking {
 
     notes: string | null;
     source: "WEB";
+    eventLocation: string;
 
     createdAt: string;
     updatedAt: string;
@@ -133,6 +135,7 @@ export interface BookingDecisionDetails {
         finalAmount: string;
         advanceAmount: string;
         remainingAmount: string;
+        eventLocation: string;
 
         approvalExpiresAt: string;
 
@@ -144,11 +147,13 @@ export interface BookingDecisionDetails {
         vendor: {
             businessName: string;
             email: string;
+            fullName: string;
         };
 
         bookedBy: {
             businessName: string;
             email: string;
+            fullName: string;
         };
     };
 }
@@ -241,15 +246,18 @@ export interface BookingDetailsResponse {
         endDate: string;
         totalDays: number;
         notes: string | null;
+        eventLocation: string;
     };
     product: {
         title: string;
     };
     requester: {
         businessName: string;
+        fullName: string;
     };
     provider: {
         businessName: string;
+        fullName: string;
     };
     payment: {
         totalAmount: number;

@@ -35,21 +35,17 @@ export function BookingDecisionClient({ uuid }: Props) {
 
     const { booking } = data;
 
-    const isExpired = isBefore(
-    new Date(booking.approvalExpiresAt),
-    new Date()
-);
+    const isExpired = isBefore(new Date(booking.approvalExpiresAt), new Date());
 
-const isActionable =
-    booking.status !== "PAYMENT_PENDING" && !isExpired;
+    const isActionable = booking.status !== "PAYMENT_PENDING" && !isExpired;
 
     /* ----------------------------------
        Payment breakdown (UI only)
     ---------------------------------- */
 
     const totalAmount = Number(booking.finalAmount);
-const advanceAmount = Number(booking.advanceAmount);
-const remainingAmount = Number(booking.remainingAmount);
+    const advanceAmount = Number(booking.advanceAmount);
+    const remainingAmount = Number(booking.remainingAmount);
 
     const handleDecision = (decision: "APPROVE" | "REJECT") => {
         decisionMutation.mutate(decision, {
@@ -57,7 +53,7 @@ const remainingAmount = Number(booking.remainingAmount);
                 toast.success(
                     decision === "APPROVE"
                         ? "Booking approved. Waiting for advance payment."
-                        : "Booking rejected"
+                        : "Booking rejected",
                 );
             },
             onError: (e) => toast.error(e.message),
@@ -69,9 +65,7 @@ const remainingAmount = Number(booking.remainingAmount);
             <div className="max-w-2xl mx-auto space-y-6">
                 <Card className="rounded-2xl">
                     <CardContent className="p-6 space-y-4">
-                        <h1 className="text-2xl font-bold">
-                            Booking Request
-                        </h1>
+                        <h1 className="text-2xl font-bold">Booking Request</h1>
 
                         {/* Status */}
                         <Badge
@@ -79,8 +73,8 @@ const remainingAmount = Number(booking.remainingAmount);
                                 booking.status === "REJECTED"
                                     ? "destructive"
                                     : booking.status === "PAYMENT_PENDING"
-                                    ? "secondary"
-                                    : "outline"
+                                      ? "secondary"
+                                      : "outline"
                             }
                             className={
                                 booking.status === "PAYMENT_PENDING"
@@ -101,31 +95,51 @@ const remainingAmount = Number(booking.remainingAmount);
                         <div className="space-y-2 text-sm">
                             {booking.notes && (
                                 <p className="flex items-center gap-2">
-                                <NotebookIcon className="h-4 w-4" />
-                                Note Left by Requester
-                                <strong>
-                                    {booking.notes}
-                                </strong>
-                            </p>)}
+                                    <NotebookIcon className="h-4 w-4" />
+                                    Note Left by Requester
+                                    <strong>{booking.notes}</strong>
+                                </p>
+                            )}
 
                             <p className="flex items-center gap-2">
                                 <Calendar className="h-4 w-4" />
                                 {format(
                                     new Date(booking.startDate),
-                                    "dd MMM yyyy"
+                                    "dd MMM yyyy",
                                 )}
                                 {booking.bookingType === "MULTI_DAY" &&
                                     ` – ${format(
                                         new Date(booking.endDate),
-                                        "dd MMM yyyy"
+                                        "dd MMM yyyy",
                                     )}`}
                             </p>
+
+                            <p className="flex items-start gap-2">
+                                <User className="h-4 w-4 mt-0.5" />
+                                <span className="font-medium">
+                                    Event Location:
+                                </span>
+                                <span className="text-muted-foreground">
+                                    {booking.eventLocation}
+                                </span>
+                            </p>
+
+                            <div className="mt-2 rounded-xl overflow-hidden border">
+                                <iframe
+                                    width="100%"
+                                    height="200"
+                                    loading="lazy"
+                                    allowFullScreen
+                                    src={`https://www.google.com/maps?q=${encodeURIComponent(
+                                        booking.eventLocation,
+                                    )}&output=embed`}
+                                />
+                            </div>
 
                             {booking.startTime && booking.endTime && (
                                 <p className="flex items-center gap-2">
                                     <Clock className="h-4 w-4" />
-                                    {booking.startTime} –{" "}
-                                    {booking.endTime}
+                                    {booking.startTime} – {booking.endTime}
                                 </p>
                             )}
 
@@ -140,15 +154,18 @@ const remainingAmount = Number(booking.remainingAmount);
                             <p className="flex items-center gap-2">
                                 <CreditCard className="h-4 w-4" />
                                 Advance payable:
-                                <strong  className="text-green-500">
+                                <strong className="text-green-500">
                                     ₹{advanceAmount.toLocaleString()}
                                 </strong>
                             </p>
 
                             <p className="text-xs text-muted-foreground pl-6">
-                                Remaining 
-                                <span className="text-green-500 text-bold">{" "}₹{remainingAmount.toLocaleString()}</span> to be
-                                collected after event completion
+                                Remaining
+                                <span className="text-green-500 text-bold">
+                                    {" "}
+                                    ₹{remainingAmount.toLocaleString()}
+                                </span>{" "}
+                                to be collected after event completion
                             </p>
                         </div>
                     </CardContent>
@@ -169,9 +186,7 @@ const remainingAmount = Number(booking.remainingAmount);
                             <Button
                                 className="flex-1 bg-gradient-primary"
                                 disabled={decisionMutation.isPending}
-                                onClick={() =>
-                                    handleDecision("APPROVE")
-                                }
+                                onClick={() => handleDecision("APPROVE")}
                             >
                                 Approve
                             </Button>
@@ -180,9 +195,7 @@ const remainingAmount = Number(booking.remainingAmount);
                                 variant="destructive"
                                 className="flex-1"
                                 disabled={decisionMutation.isPending}
-                                onClick={() =>
-                                    handleDecision("REJECT")
-                                }
+                                onClick={() => handleDecision("REJECT")}
                             >
                                 Reject
                             </Button>

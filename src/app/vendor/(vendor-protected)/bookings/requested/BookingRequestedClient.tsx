@@ -34,8 +34,8 @@ export function BookingRequestedClient({ uuid }: Props) {
     const { booking } = data;
 
     const totalAmount = Number(booking.finalAmount);
-const advanceAmount = Number(booking.advanceAmount);
-const remainingAmount = Number(booking.remainingAmount);
+    const advanceAmount = Number(booking.advanceAmount);
+    const remainingAmount = Number(booking.remainingAmount);
 
     return (
         <main className="pt-28 px-4 pb-20">
@@ -54,7 +54,7 @@ const remainingAmount = Number(booking.remainingAmount);
                         <p className="text-muted-foreground">
                             Your request has been sent to{" "}
                             <span className="font-medium">
-                                {booking.vendor.businessName}
+                                {booking.vendor?.businessName ?? "Vendor"}
                             </span>
                             . You’ll be notified once the vendor responds.
                         </p>
@@ -73,7 +73,7 @@ const remainingAmount = Number(booking.remainingAmount);
                                 <span className="font-medium">
                                     {format(
                                         new Date(booking.startDate),
-                                        "dd MMM yyyy"
+                                        "dd MMM yyyy",
                                     )}
                                     {booking.totalDays > 1 && (
                                         <>
@@ -81,11 +81,30 @@ const remainingAmount = Number(booking.remainingAmount);
                                             –{" "}
                                             {format(
                                                 new Date(booking.endDate),
-                                                "dd MMM yyyy"
+                                                "dd MMM yyyy",
                                             )}
                                         </>
                                     )}
                                 </span>
+                            </div>
+
+                            <div className="flex justify-between">
+                                <span>Event Location</span>
+                                <span className="font-medium text-right max-w-[60%]">
+                                    {booking.eventLocation}
+                                </span>
+                            </div>
+
+                            <div className="mt-2 rounded-xl overflow-hidden border">
+                                <iframe
+                                    width="100%"
+                                    height="200"
+                                    loading="lazy"
+                                    allowFullScreen
+                                    src={`https://www.google.com/maps?q=${encodeURIComponent(
+                                        booking.eventLocation,
+                                    )}&output=embed`}
+                                />
                             </div>
 
                             {booking.startTime && booking.endTime && (
@@ -106,14 +125,14 @@ const remainingAmount = Number(booking.remainingAmount);
 
                             {/* Payment Info */}
                             <div className="border-t pt-2 space-y-1">
-                                    <div className="flex justify-between text-xs text-foreground text-bold">
+                                <div className="flex justify-between text-xs text-foreground text-bold">
                                     <span>Total Ammount</span>
-                                    <span>
-                                        ₹{totalAmount.toLocaleString()}
-                                    </span>
+                                    <span>₹{totalAmount.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between font-semibold">
-                                    <span>Advance Payable (after approval)</span>
+                                    <span>
+                                        Advance Payable (after approval)
+                                    </span>
                                     <span className="text-primary">
                                         ₹{advanceAmount.toLocaleString()}
                                     </span>

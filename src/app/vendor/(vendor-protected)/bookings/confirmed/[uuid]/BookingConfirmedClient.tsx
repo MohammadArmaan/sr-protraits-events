@@ -88,7 +88,9 @@ export function BookingConfirmedClient({ uuid }: Props) {
                                     Vendor
                                 </span>
                                 <span className="font-medium">
-                                    {booking.vendor.businessName}
+                                    {booking.vendor?.businessName ||
+                                        booking.vendor?.fullName ||
+                                        "Vendor"}
                                 </span>
                             </div>
 
@@ -109,14 +111,35 @@ export function BookingConfirmedClient({ uuid }: Props) {
                                 <span className="font-medium">
                                     {format(
                                         new Date(booking.startDate),
-                                        "dd MMM yyyy"
+                                        "dd MMM yyyy",
                                     )}
                                     {booking.bookingType === "MULTI_DAY" &&
                                         ` – ${format(
                                             new Date(booking.endDate),
-                                            "dd MMM yyyy"
+                                            "dd MMM yyyy",
                                         )}`}
                                 </span>
+                            </div>
+
+                            <div className="flex justify-between border-b pb-3">
+                                <span className="text-muted-foreground">
+                                    Event Location
+                                </span>
+                                <span className="font-medium">
+                                    {booking.eventLocation}
+                                </span>
+                            </div>
+
+                            <div className="mt-2 rounded-xl overflow-hidden border">
+                                <iframe
+                                    width="100%"
+                                    height="200"
+                                    loading="lazy"
+                                    allowFullScreen
+                                    src={`https://www.google.com/maps?q=${encodeURIComponent(
+                                        booking.eventLocation,
+                                    )}&output=embed`}
+                                />
                             </div>
 
                             {booking.startTime && booking.endTime && (

@@ -45,6 +45,7 @@ export async function GET(
                 db
                     .select({
                         businessName: vendorsTable.businessName,
+                        fullName: vendorsTable.fullName,
                         
                     })
                     .from(vendorsTable)
@@ -53,6 +54,7 @@ export async function GET(
                 db
                     .select({
                         businessName: vendorsTable.businessName,
+                        fullName: vendorsTable.fullName,
                         
                     })
                     .from(vendorsTable)
@@ -88,6 +90,7 @@ export async function GET(
                 endDate: booking.endDate,
                 totalDays: booking.totalDays,
                 notes: booking.notes,
+                eventLocation: booking.eventLocation,
             },
             product,
             requester,

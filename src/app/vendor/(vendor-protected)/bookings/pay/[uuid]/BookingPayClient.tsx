@@ -95,19 +95,21 @@ export function BookingPayClient({ uuid }: Props) {
                         amount,
                         currency,
                         order_id: orderId,
-                        name: booking.vendor.businessName,
+                        name:
+                            booking?.vendor?.businessName ||
+                            booking?.vendor?.fullName,
                         description: booking.product.title,
                         handler: (response: RazorpaySuccessResponse) => {
                             verifyPayment.mutate(response, {
                                 onSuccess: async () => {
                                     toast.success(
-                                        "Advance payment successful 🎉"
+                                        "Advance payment successful 🎉",
                                     );
                                     await queryClient.invalidateQueries({
                                         queryKey: ["booking-decision", uuid],
                                     });
                                     router.push(
-                                        `/vendor/bookings/confirmed/${uuid}`
+                                        `/vendor/bookings/confirmed/${uuid}`,
                                     );
                                 },
                                 onError: () => {
@@ -126,7 +128,7 @@ export function BookingPayClient({ uuid }: Props) {
                 onError: (e) => {
                     toast.error(e.message);
                 },
-            }
+            },
         );
     };
 
@@ -145,12 +147,30 @@ export function BookingPayClient({ uuid }: Props) {
                         <div className="space-y-2 text-sm">
                             <p>
                                 <strong>Vendor:</strong>{" "}
-                                {booking.vendor.businessName}
+                                {booking.vendor?.businessName?.trim()
+                                    ? booking.vendor.businessName
+                                    : (booking.vendor?.fullName ?? "Vendor")}
                             </p>
                             <p>
                                 <strong>Service:</strong>{" "}
                                 {booking.product.title}
                             </p>
+                            <p>
+                                <strong>Event Location:</strong>{" "}
+                                {booking.eventLocation}
+                            </p>
+
+                            <div className="mt-2 rounded-xl overflow-hidden border">
+                                <iframe
+                                    width="100%"
+                                    height="200"
+                                    loading="lazy"
+                                    allowFullScreen
+                                    src={`https://www.google.com/maps?q=${encodeURIComponent(
+                                        booking.eventLocation,
+                                    )}&output=embed`}
+                                />
+                            </div>
 
                             <div className="border-t pt-2 space-y-1">
                                 <p>

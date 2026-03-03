@@ -63,6 +63,7 @@ interface CalendarEvent {
     type: "booked_by_me" | "booked_for_me";
     status: "upcoming" | "completed";
     notes?: string | null;
+    eventLocation: string;
 }
 
 const isEventOver = (endDate: string) => {
@@ -143,6 +144,7 @@ export default function CalendarClient() {
                             ? "completed"
                             : "upcoming",
                     notes: booking.notes,
+                    eventLocation: booking.eventLocation,
                 };
             });
         };
@@ -706,11 +708,12 @@ export default function CalendarClient() {
                                                                     Service
                                                                     Provider:
                                                                 </strong>{" "}
-                                                                {
+                                                                {details
+                                                                    .provider
+                                                                    .businessName ||
                                                                     details
                                                                         .provider
-                                                                        .businessName
-                                                                }
+                                                                        .fullName}
                                                             </p>
                                                         </>
                                                     )}
@@ -767,6 +770,25 @@ export default function CalendarClient() {
                                                     {event.notes}
                                                 </p>
                                             )}
+
+                                            <p className="text-sm bg-muted p-2 rounded">
+                                                <strong>
+                                                    Event Location:
+                                                </strong>{" "}
+                                                {event.eventLocation}
+                                            </p>
+
+                                            <div className="mt-2 rounded-xl overflow-hidden border">
+                                                <iframe
+                                                    width="100%"
+                                                    height="200"
+                                                    loading="lazy"
+                                                    allowFullScreen
+                                                    src={`https://www.google.com/maps?q=${encodeURIComponent(
+                                                        event.eventLocation,
+                                                    )}&output=embed`}
+                                                />
+                                            </div>
 
                                             {/* Notes CTA */}
                                             <Button

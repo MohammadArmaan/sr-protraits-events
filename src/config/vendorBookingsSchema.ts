@@ -93,6 +93,7 @@ export const vendorBookingsTable = pgTable("vendor_bookings", {
     }).notNull(),
 
     /* -------- Metadata -------- */
+    eventLocation: varchar("eventLocation", { length: 255 }).notNull(),
     notes: varchar("notes", { length: 500 }),
     source: varchar("source", { length: 20 }).default("WEB"),
 

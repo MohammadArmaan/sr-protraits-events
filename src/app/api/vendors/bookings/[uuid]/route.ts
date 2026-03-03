@@ -12,7 +12,7 @@ const bookedByVendor = alias(vendorsTable, "booked_by_vendor");
 
 export async function GET(
     _req: NextRequest,
-    context: { params: Promise<{ uuid: string }> }
+    context: { params: Promise<{ uuid: string }> },
 ) {
     try {
         const { uuid } = await context.params;
@@ -20,7 +20,7 @@ export async function GET(
         if (!uuid) {
             return NextResponse.json(
                 { error: "Booking UUID is required" },
-                { status: 400 }
+                { status: 400 },
             );
         }
         const result = await db
@@ -44,6 +44,7 @@ export async function GET(
                 approvalExpiresAt: vendorBookingsTable.approvalExpiresAt,
 
                 notes: vendorBookingsTable.notes,
+                eventLocation: vendorBookingsTable.eventLocation,
 
                 product: {
                     title: vendorProductsTable.title,
@@ -52,25 +53,27 @@ export async function GET(
                 vendor: {
                     businessName: serviceVendor.businessName,
                     email: serviceVendor.email,
+                    fullName: serviceVendor.fullName,
                 },
 
                 bookedBy: {
                     businessName: bookedByVendor.businessName,
                     email: bookedByVendor.email,
+                    fullName: bookedByVendor.fullName,
                 },
             })
             .from(vendorBookingsTable)
-            .leftJoin(
+            .innerJoin(
                 vendorProductsTable,
-                eq(vendorBookingsTable.vendorProductId, vendorProductsTable.id)
+                eq(vendorBookingsTable.vendorProductId, vendorProductsTable.id),
             )
-            .leftJoin(
+            .innerJoin(
                 serviceVendor,
-                eq(vendorBookingsTable.vendorId, serviceVendor.id)
+                eq(vendorBookingsTable.vendorId, serviceVendor.id),
             )
-            .leftJoin(
+            .innerJoin(
                 bookedByVendor,
-                eq(vendorBookingsTable.bookedByVendorId, bookedByVendor.id)
+                eq(vendorBookingsTable.bookedByVendorId, bookedByVendor.id),
             )
             .where(eq(vendorBookingsTable.uuid, uuid));
 
@@ -79,17 +82,16 @@ export async function GET(
         if (!booking) {
             return NextResponse.json(
                 { error: "Booking not found" },
-                { status: 404 }
+                { status: 404 },
             );
         }
 
-        // ✅ Return booking directly — no remapping bugs
         return NextResponse.json({ booking });
     } catch (error) {
         console.error("GET BOOKING ERROR:", error);
         return NextResponse.json(
             { error: "Internal server error" },
-            { status: 500 }
+            { status: 500 },
         );
     }
 }

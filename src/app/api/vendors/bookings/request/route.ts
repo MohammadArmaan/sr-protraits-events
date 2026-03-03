@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
             endTime,
             couponCode,
             notes,
+            eventLocation,
         }: {
             vendorProductId: number;
             startDate: string;
@@ -78,14 +79,15 @@ export async function POST(req: NextRequest) {
             endTime?: string;
             couponCode?: string;
             notes?: string;
+            eventLocation: string;
         } = await req.json();
 
-        if (!vendorProductId || !startDate) {
-            return NextResponse.json(
-                { error: "vendorProductId and startDate are required" },
-                { status: 400 }
-            );
-        }
+        if (!vendorProductId || !startDate || !eventLocation?.trim()) {
+    return NextResponse.json(
+        { error: "vendorProductId, startDate and eventLocation are required" },
+        { status: 400 }
+    );
+}
 
         /* ---------------- FETCH PRODUCT ---------------- */
         const [product] = await db
@@ -289,9 +291,10 @@ export async function POST(req: NextRequest) {
             discountAmount: num(discountAmount),
             finalAmount: num(finalAmount),
 
-            // ✅ NEW (critical)
             advanceAmount: num(advanceAmount),
             remainingAmount: num(remainingAmount),
+
+            eventLocation: eventLocation.trim(),
 
             status: "REQUESTED",
             approvalExpiresAt: new Date(Date.now() + HOURS_8),

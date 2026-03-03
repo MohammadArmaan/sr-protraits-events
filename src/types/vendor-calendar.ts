@@ -34,6 +34,7 @@ export interface VendorBooking {
 
     status: BookingStatus;
     notes: string | null;
+    eventLocation: string;
 
     createdAt: string;
     updatedAt: string;
@@ -92,6 +93,7 @@ export interface VendorCalendarReport {
 
     status: BookingStatus;
     notes: string | null;
+    eventLocation: string;
 
     createdAt: string;
     updatedAt: string;
