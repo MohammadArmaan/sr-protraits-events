@@ -29,6 +29,7 @@ export function mapBookingToReport(
         status: row.status as any, // if enum in DB, better to define enum type
 
         notes: row.notes,
+        eventLocation: row.eventLocation,
 
         createdAt: row.createdAt?.toISOString() ?? "",
         updatedAt: row.updatedAt?.toISOString() ?? "",
